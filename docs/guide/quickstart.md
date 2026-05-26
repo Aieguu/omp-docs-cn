@@ -32,7 +32,12 @@ omp -p "列出这个项目的主要入口文件"
 
 | 操作 | 作用 |
 | --- | --- |
-| `/model` | 切换当前模型。 |
+| `/login` | 登录或添加 Provider 凭据；无参数时打开 Provider 选择器。 |
+| `/logout` | 清除某个 Provider 的已保存凭据。 |
+| `/model` | 打开模型选择器；用于选择模型并调整角色分配。 |
+| `Ctrl+P` | 在当前会话中按配置的角色/模型循环顺序切换当前主模型。 |
+| `Ctrl+L` | 打开模型选择器并设置角色。 |
+| `Alt+P` | 临时选择一个模型，不写回 `modelRoles`。 |
 | `/mcp list` | 查看 MCP server 发现结果。 |
 | `/mcp reload` | 修改 MCP 配置后重新加载。 |
 | `/tree` | 打开当前会话树，在历史节点之间跳转。 |
@@ -40,6 +45,8 @@ omp -p "列出这个项目的主要入口文件"
 | `/fork` | 复制当前会话文件。 |
 | `/resume` | 恢复历史会话。 |
 | `/reload-plugins` | 修改扩展或插件后重新加载。 |
+
+完整命令见 [Slash 命令](./slash-commands.md)，完整键位见 [快捷键](./keybindings.md)。
 
 ## 推荐的首轮任务
 
@@ -80,6 +87,8 @@ omp -p "列出这个项目的主要入口文件"
 ```text
 使用 LSP 找到 formatBytes 的所有引用，然后把它重命名为 formatFileSize，确保导出和导入一起更新。
 ```
+
+![官方 LSP 示例：引用查找和重命名](https://omp.sh/captures/lsp.webp)
 
 ## 使用调试器
 

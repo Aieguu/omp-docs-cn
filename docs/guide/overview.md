@@ -28,6 +28,8 @@ omp 提供四类主要入口：
 
 Node / TypeScript 项目还可以通过 `@oh-my-pi/pi-coding-agent` SDK 直接嵌入。
 
+![官方 TUI ask 示例](https://omp.sh/captures/ask.webp)
+
 ### 2. 模型与 Provider 路由
 
 omp 支持四十多个 Provider / coding plan / 本地模型入口。模型可以按角色配置：
@@ -54,6 +56,8 @@ omp 支持四十多个 Provider / coding plan / 本地模型入口。模型可�
 
 工具不是简单“插件列表”，而是 agent prompt、运行时、TUI 渲染、权限、会话持久化和扩展拦截共同组成的执行层。
 
+![官方 eval 示例：Python 与 JavaScript cell](https://omp.sh/captures/eval.webp)
+
 ### 4. 会话树与分支
 
 会话以 JSONL 持久化，非线性结构由 `id` / `parentId` 表达。`/tree` 可以在当前会话文件内部移动 leaf，回到任意历史节点继续生成分支。`/branch`、`/fork`、`/resume` 则用于会话文件级别的分支、复制和切换。
@@ -61,6 +65,8 @@ omp 支持四十多个 Provider / coding plan / 本地模型入口。模型可�
 ### 5. 原生 Rust 能力
 
 项目包含 `pi-natives`、`pi-shell`、`pi-ast`、`pi-iso` 等 Rust crate，提供 in-process 的 grep、glob、bash/PTY、AST、文本渲染、图片处理、token 计数、缓存与隔离支持。这样可以减少在 Windows/macOS/Linux 上对外部二进制工具的依赖。
+
+![官方浏览器工具示例](https://omp.sh/captures/browser.webp)
 
 ## 与其他 agent CLI 的区别
 

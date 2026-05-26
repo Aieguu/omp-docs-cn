@@ -8,7 +8,7 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   themeConfig: {
-    logo: "https://github.com/can1357/oh-my-pi/raw/main/assets/hero.png",
+    logo: "https://omp.sh/favicon.svg",
     siteTitle: "OMP 中文文档",
     nav: [
       { text: "指南", link: "/guide/overview" },
@@ -23,6 +23,8 @@ export default defineConfig({
           { text: "项目概览", link: "/guide/overview" },
           { text: "安装与升级", link: "/guide/install" },
           { text: "快速上手", link: "/guide/quickstart" },
+          { text: "Slash 命令", link: "/guide/slash-commands" },
+          { text: "快捷键", link: "/guide/keybindings" },
           { text: "核心概念", link: "/guide/concepts" }
         ]
       },

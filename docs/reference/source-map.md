@@ -13,6 +13,8 @@
 | [项目概览](../guide/overview.md) | README、工具总览、Provider 总览、入口模式、monorepo packages。 |
 | [安装与升级](../guide/install.md) | README install、配置目录、运行入口。 |
 | [快速上手](../guide/quickstart.md) | TUI、one-shot、slash commands、LSP、debug、task。 |
+| [Slash 命令](../guide/slash-commands.md) | 官方 `/docs/slash`、上游 `builtin-registry.ts`。 |
+| [快捷键](../guide/keybindings.md) | 官方 `/docs/keybindings`、上游 `docs/keybindings.md`。 |
 | [核心概念](../guide/concepts.md) | session、skills、extensions、MCP、memory、tool surface。 |
 | [工具系统](../guide/tools.md) | `docs/tools/*`、bash/runtime、read/edit/search、task、memory。 |
 | [会话、分支与记忆](../guide/sessions.md) | `session.md`、`tree.md`、`compaction.md`、`blob-artifact-architecture.md`、memory docs。 |

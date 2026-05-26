@@ -63,6 +63,8 @@ omp 的工具系统目标是让 agent 使用稳定、结构化、可渲染、可
 | `inspect_image` | 用视觉模型分析本地图片。 |
 | `render_mermaid` | 将 Mermaid 渲染为终端 ASCII 或 PNG。 |
 
+![官方 Web 搜索示例](https://omp.sh/clips/web-poster.webp)
+
 ## 记忆与状态工具
 
 | 工具 | 用途 |
@@ -119,3 +121,5 @@ retain, recall, reflect
 - `pr://`、`issue://`、`agent://`、`skill://`、`rule://` 等内部 URL。
 
 这也是上游设计里“GitHub is just another filesystem”的基础。
+
+![官方 PR 虚拟文件系统示例](https://omp.sh/captures/pr.webp)
