@@ -1,146 +1,201 @@
-# 会话、分支与记忆
+# 会话
 
-## 会话文件
+会话是磁盘上 `~/.omp/agent/sessions/` 下的仅追加树结构，按工作目录分组，因此两个项目不会共享历史记录。每一轮对话是一个带有父指针的节点；分支操作移动叶子节点并从该处追加，因此原始时间线始终保留在文件中。有关磁盘上的数据格式，请参阅 [Session format](../reference/session-format.md)。
 
-默认路径：
+> 会话 ID 是 Snowflake 风格的十六进制，不是 UUID。它们按时间排序，因此 6 字符前缀如 `1f9d2a` 就足以标识一个会话。
 
-```text
-~/.omp/agent/sessions/--<cwd-encoded>--/<timestamp>_<sessionId>.jsonl
+## 恢复会话
+
+四个参数覆盖常见场景：
+
+```
+omp -c                       # continue most recent in this cwd
+omp -r                       # open a picker scoped to this project
+omp -r 1f9d2a                # resume by id prefix
+omp --resume ./session.jsonl # resume an explicit file
+omp --no-session             # ephemeral; nothing written to disk
 ```
 
-第一行是 session header，后续每一行是 entry。当前版本为 `3`。
+`-c` 优先使用每个终端的面包屑记录，因此同一目录下的分屏和 `tmux` 窗口不会互相干扰。如果面包屑记录缺失，则回退到当前目录中最新的会话，然后重新开始。
 
-header 示例：
+`-r <prefix>` 先在当前项目中查找 ID，再全局查找。如果匹配项在其他位置，omp 会先提示再将其分叉到当前目录，而不是静默切换目录。`--session` 是 `--resume` 的别名。
 
-```json
-{
-  "type": "session",
-  "version": 3,
-  "id": "1f9d2a6b9c0d1234",
-  "timestamp": "2026-02-16T10:20:30.000Z",
-  "cwd": "/work/pi",
-  "title": "optional session title",
-  "titleSource": "auto"
-}
+`--fork <id|path>` 将会话恢复到一个全新的文件中，并带有 `parentSession` 血统标记，原始文件保持不变。适用于脚本或一次性运行：
+
+```
+omp --fork 1f9d2a             # fork by id prefix
+omp --fork ./session.jsonl    # fork from an explicit file
 ```
 
-## Entry 类型
+> `--no-session` 以临时模式运行：不会持久化任何内容，且 `/fork`、`/export` 和 `/share` 在该次运行中被禁用。配合 `-p` 使用可实现不在磁盘上留下痕迹的一次性管道。
 
-常见 entry：
+完整参数参考：[CLI reference](../reference/cli.md)。
 
-| 类型 | 含义 |
+## 浏览会话树（`/tree`）
+
+`/tree` 是原地导航器。它将叶子指针移动到当前文件中任何较早的消息——不会创建新文件，也不会分叉——这在某一轮对话走偏或你需要跳过一段冗长的工具调用时非常有用。
+
+```
+● 1f9d2a  user      "rewrite the importer to stream"
+└─● 1f9d2b  assistant tool: read src/importer.ts
+  ├─● 1f9d2c  assistant edit src/importer.ts          ← current leaf
+  │ └─● 1f9d2d  user      "add a test for the stream path"
+  └─● 1f9d2e  assistant edit src/importer.ts (alt)    ← branch B
+    └─◆ 1f9d2f  [labeled: pre-refactor checkpoint]
+```
+
+- 输入文字可模糊搜索消息；←/→ 翻页浏览结果。
+- Ctrl+O 循环切换过滤器：_default_ → _no-tools_ → _user-only_ → _labeled-only_ → _all_。
+- Shift+L 为高亮条目添加标签。带标签的条目会在选择器中显示，并且在压缩后仍然保留，因此它们是"稍后回到这里"标记的理想工具。
+
+## 分支 vs 分叉
+
+`/branch` 留在同一个文件中，从之前的消息开始一个新线程——相同的 ID 空间，新的叶子节点：
+
+```
+/branch                       # message selector opens; pick where to branch
+```
+
+`/fork` 将历史记录克隆到所选消息为止，生成一个带有 `parentSession` 血统标记的全新文件。原始文件保持不变——当你想尝试不同的方法而不污染时间线时非常有用：
+
+```
+/fork                         # pick a message; opens a new file
+```
+
+> 当你希望一个文件作为某次探索的规范记录时，选择 `/branch`。当替代方案可能被放弃且你不希望它干扰父会话的 `/tree` 视图时，选择 `/fork`。
+
+## 压缩（`/compact`）
+
+`/compact` 将活动分支的较旧部分进行摘要，并用单个摘要条目替换；较近的轮次保持原文。可以传入一个焦点来引导摘要的方向，例如 `/compact Focus on the API changes`。磁盘上的文件不受影响——`/tree` 仍然可以回溯到压缩前的历史。自动触发器、配置以及三种计划模式审批路径请参阅 [Memory & compaction](./memory.md) 页面。
+
+## 内部浏览
+
+进入会话后，一些斜杠命令可以在不离开 TUI 的情况下完成日常管理操作。
+
+| 命令 | 功能 |
 | --- | --- |
-| `message` | user / assistant / tool 等消息。 |
-| `model_change` | 某个角色的模型切换。 |
-| `thinking_level_change` | thinking level 调整。 |
-| `service_tier_change` | service tier 调整。 |
-| `compaction` | 上下文压缩摘要。 |
-| `branch_summary` | 离开分支时生成的摘要。 |
-| `custom` | 扩展持久化状态，不直接进入模型上下文。 |
-| `custom_message` | 扩展注入且参与上下文的消息。 |
-| `label` | 给任意 entry 打标签。 |
-| `ttsr_injection` | time-traveling stream rule 注入记录。 |
-| `session_init` | 初始系统提示、任务、工具、输出 schema。 |
-| `mode_change` | 模式变化，如 plan mode。 |
-| `mcp_tool_selection` | 最新选择的 MCP discovery tools。 |
+| `/resume` | 打开当前项目的会话选择器。 |
+| `/session info` | 打印 ID、路径、父级血统和统计信息。 |
+| `/session delete` | 删除当前文件并返回选择器。 |
+| `/new` | 在不影响当前会话的情况下启动新会话。 |
+| `/drop` | 删除当前会话并启动新会话。 |
+| `/rename <title>` | 设置选择器中显示的人类可读标签。 |
+| `/move <path>` | 将会话重新绑定到不同的工作目录。 |
 
-## Tree / leaf 模型
+完整的斜杠命令清单和快捷键：[Slash commands](./slash-commands.md)。
 
-每个 entry 都有：
+## 导出
 
-```json
-{
-  "id": "8-char-id",
-  "parentId": "previous-or-branch-parent"
+`/export [path]` 将当前会话写入一个自包含的 HTML 渲染——包括头部、条目、系统提示词、工具模式——并在浏览器中打开它。`omp --export <session.jsonl> [output]` 可以在不启动交互式会话的情况下完成相同操作，适合批量渲染归档文件。
+
+`/dump` 将纯文本记录复制到剪贴板：系统提示词、活动模型、工具定义、每条消息和工具结果。`/copy` 针对更小的片段——`/copy last`（默认）复制最后一条代理消息，`/copy code` 复制最后一个代码块，`/copy all` 复制该消息中的所有代码块，`/copy cmd` 复制代理最后运行的 bash 或 python 命令。
+
+## 分享
+
+`/share` 导出为临时 HTML，然后运行位于 `~/.omp/agent/share.{ts,js,mjs}` 的自定义分享处理程序（如果存在）。如果没有处理程序，则回退到通过 `gh` 创建秘密 GitHub gist，并通过 `gistpreview.github.io` 打开结果。
+
+> 自定义处理程序的失败_不会_回退到 gist——gist 路径仅在没有配置处理程序时运行。如果你的处理程序抛出异常，`/share` 会报告错误并停止。
+
+### 自定义分享处理程序
+
+在 `~/.omp/agent/share.ts`（或 `.js` / `.mjs`）放置一个默认导出的函数，`/share` 将调用它而非 gist 回退。签名如下：
+
+```
+// ~/.omp/agent/share.ts
+export type CustomShareFn = (
+  htmlPath: string,
+) => Promise<{ url?: string; message?: string } | string | undefined>;
+```
+
+返回字符串（或 `{ url }`）时，omp 会在浏览器中打开并复制到剪贴板。返回 `undefined` 时，omp 假设你的处理程序已自行完成交互。
+
+### 示例：上传到 S3
+
+```
+// ~/.omp/agent/share.ts
+import { execFileSync } from "node:child_process";
+import { basename } from "node:path";
+
+const BUCKET = "s3://my-team-omp-shares";
+const PUBLIC_BASE = "https://shares.my-team.dev";
+
+export default async function share(htmlPath: string) {
+  const key = `${Date.now()}-${basename(htmlPath)}`;
+  execFileSync("aws", ["s3", "cp", htmlPath, `${BUCKET}/${key}`, "--acl", "public-read"], {
+    stdio: "inherit",
+  });
+  const url = `${PUBLIC_BASE}/${key}`;
+  return { url, message: `Uploaded ${key} (${BUCKET})` };
 }
 ```
 
-会话是 append-only tree。运行时维护一个 leaf：
+## 交接给队友
 
-- 新 entry 的 `parentId` 是当前 leaf。
-- 新 entry 写入后成为新 leaf。
-- `branch(entryId)` 只移动 leaf，不删除旧 entry。
-- `resetLeaf()` 让下一条 entry 成为新 root。
+使用 `/handoff [focus]` 干净地结束当前轮次：它会写入一份结构化的收尾摘要，涵盖状态、待处理事项和后续步骤。接收者先阅读该条目，就能确切知道你在何处停下的，无需滚动整个记录。
 
-## `/tree`
+然后选择一种传输方式：
 
-`/tree` 打开当前 session 的交互式树导航器。
+**Gist（默认）**
 
-常用能力：
+`/share` 渲染为 HTML 并通过 `gh` 作为秘密 gist 上传。如果 `gh` 已完成身份验证则无需额外设置。
 
-- 搜索历史 entry。
-- 按 filter 查看 user-only、no-tools、labeled-only、all。
-- 选中 user message 时，把该消息内容预填回编辑器，方便改写后重新提交。
-- 选中非 user entry 时，leaf 移动到该 entry。
-- 可选择在离开当前分支时生成 summary。
-- `Shift+L` 可给节点打标签。
+**自定义处理程序**
 
-## Context reconstruction
+在 `~/.omp/agent/share.{ts,js,mjs}` 放置一个默认导出，`/share` 将通过它路由。
 
-发送给模型的上下文不是“整个 JSONL 文件”，而是：
+**原始文件**
 
-1. 从当前 leaf 沿 `parentId` 回溯到 root。
-2. 反转为 root → leaf。
-3. 应用路径上的 runtime state：
-   - thinking level。
-   - service tier。
-   - role model map。
-   - TTSSR 注入规则。
-   - MCP tool selection。
-   - mode data。
-4. 生成消息列表。
-5. 如果路径上有 compaction，优先插入压缩摘要，并从 `firstKeptEntryId` 后保留必要上下文。
+如需完全可编辑的交接，直接发送 `~/.omp/agent/sessions/<cwd-hash>/<id>.jsonl` 中的 JSONL 文件。接收者恢复该文件：
 
-## Compaction
-
-触发来源包括上下文溢出、阈值维护和显式操作。压缩会：
-
-- 生成摘要。
-- 保留最近必要消息。
-- 记录文件操作上下文。
-- 允许扩展通过 `session_before_compact`、`session.compacting`、`session_compact` 参与。
-
-上下文溢出时，模型级 context promotion 会先尝试切换到更大上下文模型；没有可用 promotion target 时再进入 compaction。
-
-## Fork / resume
-
-- `/fork`：复制当前会话为新会话文件。
-- `/resume`：从历史会话列表恢复。
-- 终端 breadcrumb 会记录当前 cwd 和 session file，`continueRecent()` 会优先使用当前终端的最近会话。
-
-## Blob 与 artifact
-
-两类存储容易混淆：
-
-| 类型 | 作用域 | 用途 |
-| --- | --- | --- |
-| Blob store | 全局 | 大型二进制内容，如 base64 图片，按 sha256 存储。 |
-| Artifact | session-local | 长工具输出、截断内容、可由 `artifact://<id>` 访问。 |
-
-图片内容持久化时，如果 base64 长度达到阈值，会外部化为：
-
-```text
-blob:sha256:<hash>
+```
+omp --resume ./handoff.jsonl
 ```
 
-加载会话时再还原。
+> JSONL 文件是规范记录；HTML 只是一种渲染。如果你希望接收者继续迭代，发送 JSONL。HTML 用于只读审阅。
 
-## Prompt history
+## 用法示例
 
-prompt 历史与 session 文件不同：
+### 断连后重新连接
 
-```text
-~/.omp/agent/history.db
+SSH 会话在对话中途断开。代理仍在写入——`-c` 会选择当前目录中最近的会话并回放正在流式传输的尾部：
+
+```
+ssh box
+cd ~/work/api
+omp -c          # streams the in-flight assistant turn from where it left off
 ```
 
-它是 SQLite + FTS5，用于 prompt 搜索 / 回忆，不负责会话 replay。
+### 重构前快照
 
-## Memory / Hindsight
+你即将进行一项高风险操作。标记当前叶子节点以便稍后返回：
 
-记忆用于跨会话保留项目事实：
+```
+/tree                       # opens navigator at the current leaf
+# highlight the last user turn, press Shift+L
+> pre-refactor              # label the bookmark
+# Esc back to the prompt; do the risky thing.
+# Later, if it goes sideways:
+/tree                       # filter to labeled-only with Ctrl+O, find "pre-refactor"
+/branch                     # branches from the bookmark, original timeline preserved
+```
 
-- `retain`：写入事实。
-- `recall`：搜索事实。
-- `reflect`：综合事实回答。
+### 分叉以尝试不同方法
 
-建议把记忆写成稳定事实，例如构建命令、测试策略、目录约定、禁用做法，而不是写临时状态。
+从最后一个用户轮次分叉，切换模型，给它十轮对话，如果效果不佳则放弃：
+
+```
+/fork                       # pick the last user turn; opens a new file
+/model                      # switch to the model you want to evaluate
+> redo this using streams instead of buffers
+# If it works:  /handoff and /share the new file.
+# If it doesn't: omp -r  → pick the original session, keep going.
+```
+
+### 交接前强制聚焦压缩
+
+```
+/compact Focus on the importer streaming bug and the fix in src/importer.ts
+/handoff The streaming importer now copes with empty rows; remaining work is the test for the partial-flush path.
+```
+
+有关压缩何时自动触发，请参阅 [Memory & compaction](./memory.md)；有关磁盘上的 JSONL 格式，请参阅 [Session format](../reference/session-format.md)。

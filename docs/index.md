@@ -6,15 +6,15 @@ hero:
   text: 中文文档
   tagline: 一个把 IDE、终端、模型、工具、会话和扩展系统连成一体的 coding agent。
   image:
-    src: https://omp.sh/og-image.png
+    src: /hero.png
     alt: Oh My Pi
   actions:
     - theme: brand
       text: 开始阅读
       link: /guide/overview
     - theme: alt
-      text: 工具目录
-      link: /reference/tool-catalog
+      text: 工具索引
+      link: /guide/tools
     - theme: alt
       text: 上游项目
       link: https://github.com/can1357/oh-my-pi

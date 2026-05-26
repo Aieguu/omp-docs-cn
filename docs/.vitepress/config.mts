@@ -7,12 +7,15 @@ export default defineConfig({
   base: "/omp-docs-cn/",
   cleanUrls: true,
   lastUpdated: true,
+  head: [
+    ["link", { rel: "icon", type: "image/x-icon", href: "/omp-docs-cn/favicon.ico" }]
+  ],
   themeConfig: {
-    logo: "https://omp.sh/favicon.svg",
+    logo: "/omp-docs-cn/hero.png",
     siteTitle: "OMP 中文文档",
     nav: [
       { text: "指南", link: "/guide/overview" },
-      { text: "参考", link: "/reference/tool-catalog" },
+      { text: "参考", link: "/reference/cli" },
       { text: "源码", link: "https://github.com/can1357/oh-my-pi" },
       { text: "官网", link: "https://omp.sh" }
     ],
@@ -23,35 +26,84 @@ export default defineConfig({
           { text: "项目概览", link: "/guide/overview" },
           { text: "安装与升级", link: "/guide/install" },
           { text: "快速上手", link: "/guide/quickstart" },
-          { text: "Slash 命令", link: "/guide/slash-commands" },
-          { text: "快捷键", link: "/guide/keybindings" },
-          { text: "核心概念", link: "/guide/concepts" }
+          { text: "使用 omp", link: "/guide/using" }
         ]
       },
       {
         text: "日常使用",
         items: [
-          { text: "工具系统", link: "/guide/tools" },
-          { text: "会话、分支与记忆", link: "/guide/sessions" },
-          { text: "配置体系", link: "/guide/config" },
-          { text: "模型与 Provider", link: "/guide/models" }
+          { text: "Slash 命令", link: "/guide/slash-commands" },
+          { text: "快捷键", link: "/guide/keybindings" },
+          { text: "设置", link: "/guide/settings" },
+          { text: "运行模式", link: "/guide/modes" }
         ]
       },
       {
-        text: "高级主题",
+        text: "会话",
         items: [
-          { text: "扩展、技能、MCP 与 Hook", link: "/guide/extensibility" },
-          { text: "架构与运行时", link: "/guide/internals" },
-          { text: "常见问题", link: "/guide/faq" }
+          { text: "会话", link: "/guide/sessions" },
+          { text: "会话树", link: "/guide/session-tree" },
+          { text: "记忆", link: "/guide/memory" },
+          { text: "压缩", link: "/guide/compaction" },
+          { text: "计划模式", link: "/guide/plan" },
+          { text: "目标模式", link: "/guide/goal" },
+          { text: "交接", link: "/guide/handoff" }
+        ]
+      },
+      {
+        text: "工具",
+        items: [
+          { text: "文件操作", link: "/guide/files" },
+          { text: "代码智能", link: "/guide/code-intelligence" },
+          { text: "调试", link: "/guide/debugging" },
+          { text: "结构化编辑", link: "/guide/editing" },
+          { text: "子代理与 IRC", link: "/guide/subagents" },
+          { text: "Web 与浏览器", link: "/guide/web" },
+          { text: "GitHub", link: "/guide/github" },
+          { text: "工具索引", link: "/guide/tools" }
+        ]
+      },
+      {
+        text: "模型",
+        items: [
+          { text: "Provider", link: "/guide/providers" },
+          { text: "模型角色", link: "/guide/roles" },
+          { text: "自定义模型与 Provider", link: "/guide/custom-models" }
+        ]
+      },
+      {
+        text: "扩展",
+        items: [
+          { text: "上下文文件", link: "/guide/context-files" },
+          { text: "技能", link: "/guide/skills" },
+          { text: "Prompt 模板", link: "/guide/prompt-templates" },
+          { text: "Hook", link: "/guide/hooks" },
+          { text: "自定义工具", link: "/guide/custom-tools" },
+          { text: "编写子代理", link: "/guide/subagent-authoring" },
+          { text: "MCP", link: "/guide/mcp" },
+          { text: "编写 MCP 服务端", link: "/guide/mcp-authoring" },
+          { text: "主题", link: "/guide/themes" },
+          { text: "TTSR 规则", link: "/guide/ttsr" },
+          { text: "插件", link: "/guide/plugins" },
+          { text: "编写扩展", link: "/guide/extension-authoring" },
+          { text: "市场", link: "/guide/marketplace" }
+        ]
+      },
+      {
+        text: "集成",
+        items: [
+          { text: "SDK", link: "/guide/sdk" },
+          { text: "RPC 模式", link: "/guide/rpc" },
+          { text: "ACP", link: "/guide/acp" }
         ]
       },
       {
         text: "参考",
         items: [
-          { text: "内置工具目录", link: "/reference/tool-catalog" },
-          { text: "环境变量速查", link: "/reference/env" },
-          { text: "MCP 配置速查", link: "/reference/mcp" },
-          { text: "上游文档覆盖清单", link: "/reference/source-map" }
+          { text: "CLI 参考", link: "/reference/cli" },
+          { text: "环境变量", link: "/reference/env" },
+          { text: "密钥与认证", link: "/reference/secrets" },
+          { text: "会话格式", link: "/reference/session-format" }
         ]
       }
     ],

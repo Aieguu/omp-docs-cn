@@ -1,144 +1,162 @@
-# Slash 命令
+# 斜杠命令
 
-Slash 命令是在 TUI 输入框中以 `/` 开头的控制命令。输入 `/` 会出现补全；自定义命令也可以从配置目录加载。
+## 工作原理
 
-本页按官方英文文档和当前上游注册表整理。不同版本可能增减命令，运行中可用 `/hotkeys` 和 `/tools` 辅助确认当前构建状态。
+输入 `/` 即可打开补全菜单。已安装的 Skill 会显示为 `/skill:<name>`，[自定义命令模板](./prompt-templates.md) 会以各自的 `/<template>` 名称展开。驱动编辑器的按键绑定请参阅 [快捷键](./keybindings.md) 页面。
 
-## 使用模型与 Provider
+## 你最常用的 10 个命令
 
-| 命令 | 作用 |
+- `/plan` — 切换 Plan 模式；Agent 会先起草计划再执行。参见 [Plan 模式](./plan.md)。
+- `/model` — 打开模型选择器；选择角色和 Provider。
+- `/compact` — 手动压缩旧上下文；可传入聚焦提示。
+- `/tree` — 原地打开会话导航器；跳转到任意历史消息。
+- `/branch` — 从同一文件中的某条历史消息开始新线程。
+- `/extensions` — Extension 控制中心，管理 Skill、Hook、自定义工具、MCP、插件。
+- `/agents` — Agent 控制中心；启动、观察和引导子 Agent。
+- `/login` — OAuth 登录 Provider；`/logout` 撤销授权。
+- `/share` — 渲染会话并上传（自定义处理器，回退到 Gist）。
+- `/handoff` — 写一段结构化的总结并结束当前轮次。
+
+## 会话管理
+
+| 命令 | 说明 |
 | --- | --- |
-| `/login [provider|redirect-url]` | 登录或添加 Provider 凭据。无参数时打开按字母排序的 Provider 选择器；OAuth 流程中也可粘贴 redirect URL。 |
-| `/logout <provider>` | 清除 Provider 的已保存 OAuth / API key 凭据。 |
-| `/model` / `/models` | 打开模型选择器；在 TUI 中用于选择当前模型并调整角色分配。 |
-| `/model <id>` | 在非 TUI / ACP 路径中可直接设置指定模型；`id` 可为 `provider/model`。 |
-| `/fast [on|off|status]` | 切换优先服务层，例如 OpenAI `service_tier=priority` 或 Anthropic fast。 |
-| `/usage` | 查看 Provider 用量和限制。 |
+| `/session [info\|delete]` | 显示会话信息或删除当前会话 |
+| `/resume` | 打开会话选择器 |
+| `/new` | 开始新会话 |
+| `/drop` | 删除当前会话并开始新会话 |
+| `/rename <title>` | 重命名当前会话 |
+| `/move <path>` | 将会话移动到其他工作目录 |
+| `/tree` | 导航会话树（切换分支） |
+| `/branch` | 从某条历史消息创建分支（同文件，新叶节点） |
+| `/fork` | 从某条历史消息分叉到新文件 |
+| `/compact [focus]` | 手动压缩会话上下文 |
+| `/handoff [focus]` | 写一段结构化的总结条目并结束当前轮次 |
+| `/btw <question>` | 使用当前上下文的临时旁路问题 |
+| `/retry` | 重试上一次失败的 Agent 轮次 |
+| `/background` (`/bg`) | 分离 UI 并继续在后台运行 |
+| `/export [path]` | 将会话导出为 HTML |
+| `/dump` | 将会话记录复制到剪贴板 |
+| `/share` | 将会话上传为私密 GitHub Gist（或自定义处理器） |
+| `/copy [last\|code\|all\|cmd]` | 复制最后一条 Agent 消息 / 代码块 / 最后的 bash 或 python 命令 |
+| `/goal <subcommand>` | 持久化自主目标（`set`、`show`、`pause`、`resume`、`drop`、`budget`） |
+| `/todo <subcommand>` | 查看/编辑待办列表（`edit`、`copy`、`export`、`import`、`append`、`start`、`done`、`drop`、`rm`） |
 
-::: tip `/model` 与 `Ctrl+P` 的区别
-官方文档中 `/model` 是模型选择器入口；它可以选择模型并调整角色。  
-`Ctrl+P` 才是会话内按角色/模型循环顺序切换当前主模型的快捷键。`Shift+Ctrl+P` 反向循环，`Alt+P` 临时选择模型且不写回角色配置。
-:::
+## 模型
 
-## 运行模式与当前 turn 控制
-
-| 命令 | 作用 |
+| 命令 | 说明 |
 | --- | --- |
-| `/plan [prompt]` | 开启计划模式：使用 `plan` 角色模型进行只读规划，审批后再执行。 |
-| `/goal <objective>` | 设置或切换 goal mode。 |
-| `/goal set <objective>` | 设置或替换持久目标。 |
-| `/goal show` | 显示当前目标详情。 |
-| `/goal pause` / `/goal resume` | 暂停 / 恢复目标。 |
-| `/goal drop` | 移除目标。 |
-| `/goal budget <N|off>` | 调整目标 token 预算。 |
-| `/loop [count|duration]` | 开启 loop mode：下一条 prompt 在每次 yield 后自动重提。 |
-| `/force <tool> [prompt]` | 强制下一轮使用指定工具。当前实现也支持 `/force:<tool-name> [prompt]` 形式。 |
-| `/background` / `/bg` | 将运行中的任务脱离 UI，在后台继续。 |
-| `/retry` | 重试最后一次失败的 agent turn。 |
-| `/btw <question>` | 基于当前会话上下文问一个临时旁路问题。 |
+| `/model` (`/models`) | 打开模型选择器 |
+| `/fast [on\|off\|status]` | 切换 OpenAI 服务层快速模式 |
+| `/loop [count\|duration]` | 切换循环模式（每次 yield 后自动重新提交下一条提示） |
+| `/force <tool> [prompt]` | 强制下一轮使用指定工具 |
+| `/browser [headless\|visible]` | 切换浏览器 headless/visible 模式 |
 
-## 会话与上下文
+## Plan 模式
 
-| 命令 | 作用 |
+| 命令 | 说明 |
 | --- | --- |
-| `/new` | 开始新会话。 |
-| `/drop` | 删除当前会话并开始新会话。 |
-| `/resume` | 从历史会话中恢复。 |
-| `/branch` | 从历史消息创建分支。 |
-| `/fork` | 从历史消息创建新会话文件。 |
-| `/tree` | 打开 session tree，在当前会话文件中移动 leaf。 |
-| `/session info` | 显示当前会话信息。 |
-| `/session delete` | 删除当前会话并返回选择器。 |
-| `/rename <name>` | 重命名当前会话。 |
-| `/move <cwd>` | 将会话移动到另一个工作目录作用域。 |
-| `/compact` | 手动压缩会话上下文。 |
-| `/handoff [focus]` | 生成交接摘要并带到新会话。 |
-| `/context` | 显示估算的上下文使用情况。 |
-| `/export [path]` | 导出会话为 HTML。 |
-| `/dump` | 复制完整会话 transcript。 |
-| `/share` | 通过 GitHub gist 分享会话。 |
+| `/plan [prompt]` | 切换 Plan 模式；将下一条提示路由到规划器 |
 
-## 工具、任务与调试
+Plan 模式是一个使用专用 `plan` 角色模型的旁路轮次。工作流、退出时的审批选项以及适用场景详见 [Plan 模式](./plan.md) 页面。
 
-| 命令 | 作用 |
+## Extension
+
+| 命令 | 说明 |
 | --- | --- |
-| `/tools` | 显示当前对 agent 可见的工具。 |
-| `/jobs` | 显示异步后台 job。 |
-| `/debug` | 打开调试工具选择器。 |
-| `/browser [headless|visible]` | 切换 browser 工具的 headless / visible 模式。 |
-| `/copy last` | 复制最后一条 agent 消息。 |
-| `/copy code` | 复制最后一个代码块。 |
-| `/copy all` | 复制最后一条消息中的全部代码块。 |
-| `/copy cmd` | 复制最后一次 bash / python 命令。 |
-| `/todo edit` | 在 `$EDITOR` 中编辑 todo 列表。 |
-| `/todo copy` | 复制 todo Markdown。 |
-| `/todo export [path]` | 导出 todo，默认 `TODO.md`。 |
-| `/todo import [path]` | 从 Markdown 替换 todo。 |
-| `/todo append [phase] <task>` | 添加任务。 |
-| `/todo start <task>` | 将任务标记为进行中。 |
-| `/todo done [task|phase]` | 完成任务 / 阶段 / 全部。 |
-| `/todo drop [task|phase]` | 放弃任务 / 阶段 / 全部。 |
-| `/todo rm [task|phase]` | 删除任务 / 阶段 / 全部。 |
+| `/mcp <subcommand>` | 管理 MCP 服务器（`add`、`list`、`remove`、`test`、`reauth`、`unauth`、`enable`、`disable`、`smithery-search`、`smithery-login`、`smithery-logout`、`reconnect`、`reload`、`resources`、`prompts`、`notifications`） |
+| `/ssh <subcommand>` | 管理 SSH 主机（`add`、`list`、`remove`） |
+| `/memory <subcommand>` | 查看、清除或重建记忆（`view`、`clear`/`reset`、`enqueue`/`rebuild`、`mm list|show|refresh|history|seed|delete|reload`） |
+| `/marketplace <subcommand>` | 管理 Marketplace 源和插件（`add`、`remove`、`update`、`list`、`discover`、`install`、`uninstall`、`installed`、`upgrade`） |
+| `/plugins [list\|enable\|disable]` | 查看和管理已安装的插件（npm + Marketplace） |
+| `/reload-plugins` | 重新加载 Skill、命令、Hook、工具、Agent 和 MCP |
 
-## 配置、扩展与外部服务
+插件开发相关文档请参阅 [插件](./plugins.md) 页面。
 
-| 命令 | 作用 |
+## 信息查询
+
+| 命令 | 说明 |
 | --- | --- |
-| `/settings` | 打开设置菜单。 |
-| `/extensions` / `/status` | 打开 Extension Control Center。 |
-| `/agents` | 打开 Agent Control Center。 |
-| `/reload-plugins` | 重新加载 skills、commands、hooks、tools、agents、MCP。 |
-| `/mcp <subcommand>` | 管理 MCP servers。 |
-| `/ssh <subcommand>` | 管理 ssh 工具使用的 host 定义。 |
-| `/memory <subcommand>` | 查看、清理或重建 memory。 |
-| `/marketplace <subcommand>` | 管理 marketplace 来源和插件。 |
-| `/plugins [list|enable|disable]` | 查看或启停已安装插件。 |
+| `/usage` | Provider 用量和速率限制余量 |
+| `/context` | 当前轮次的 Token 预算分解 |
+| `/jobs` | 异步后台任务状态 |
+| `/tools` | 当前对 Agent 可见的工具 |
+| `/extensions` (`/status`) | 打开 Extension 控制中心仪表盘 |
+| `/agents` | 打开 Agent 控制中心仪表盘 |
+| `/debug` | 打开调试工具选择器 |
+| `/changelog [full]` | 显示变更日志条目 |
+| `/hotkeys` | 显示实时快捷键列表 |
 
-### `/mcp` 子命令
+经验法则：`/usage` 回答"我能继续工作吗？"；`/context` 回答"下一轮能放下吗？"。
 
-```text
-add, list, remove, test, reauth, unauth,
-enable, disable,
-smithery-search, smithery-login, smithery-logout,
-reconnect, reload, resources, prompts, notifications, help
+## 其他
+
+| 命令 | 说明 |
+| --- | --- |
+| `/settings` | 打开设置菜单 |
+| `/login` / `/logout` | OAuth 登录 / 撤销授权 |
+| `/exit` (`/quit`) | 退出交互模式 |
+
+## 用法示例
+
+### `/force <tool> [prompt]`
+
+将下一轮钉选到特定工具。当模型反复对一个还不存在的文件使用 `edit`，或拒绝对新脚手架调用 `write` 时很有用：
+
+```
+:/force write Create src/config.ts with the default settings
 ```
 
-### `/ssh` 子命令
+作用范围恰好是一轮。该轮返回后，工具选择自动取消钉选。仅传 `/force write` 不带提示，则钉选你发送的下一条消息。
 
-```text
-add, list, remove, help
+### `/btw <question>`
+
+提出临时旁路问题，不会污染记录。模型能看到当前上下文，但对话不会被持久化，因此不出现在 `/tree` 中，也不参与记忆整合。
+
+```
+:/btw what does the regex on line 47 actually match?
 ```
 
-### `/memory` 子命令
+### `/loop` — 迭代直到完成或预算耗尽
 
-```text
-view, clear/reset, enqueue/rebuild,
-mm list, mm show, mm refresh, mm history,
-mm seed, mm delete, mm reload
+切换循环模式后，你发送的下一条提示会在每次 yield 后自动重新提交。传入纯数字限制迭代次数；传入 `10m` / `2h` / `30s` 形式则设置挂钟时限。`Esc` 取消当前迭代；再次运行 `/loop` 则禁用。
+
+```
+:/loop 10
+run the auth tests and fix the first failure you see
+
+:/loop 20m
+clear the typecheck backlog in packages/coding-agent
 ```
 
-### `/marketplace` 子命令
+接受的单位：`s`、`m`、`min`、`h`、`hr` 及其复数形式。混合形式（如 `/loop 10 5m`）会被拒绝。
 
-```text
-add, remove, update, list, discover,
-install, uninstall, installed, upgrade, help
+### `/background` 然后 `omp -c`
+
+分离 UI 让 Agent 继续运行。会话在后台进程中继续；你可以关闭终端。从任意终端重新连接：
+
+```
+:/background          # detach the current session
+omp -c               # reattach the most recent session
 ```
 
-## UI 与退出
+从另一个活跃会话使用 `/jobs` 可以在不重新连接的情况下查看后台任务状态，它会列出后台工作和最后一行状态。配合 `/loop` 适合长时间自主运行。
 
-| 命令 | 作用 |
-| --- | --- |
-| `/hotkeys` | 显示当前键位。 |
-| `/changelog` / `/changelog full` | 显示更新日志。 |
-| `/exit` / `/quit` | 退出交互模式。 |
+### `/retry` 应对上下文溢出
 
-## 自定义 slash 命令
+当上一轮报错（Provider 429、上下文长度溢出、临时 Socket 重置）时，`/retry` 会重新提交相同的用户输入。如果此后已经进行了压缩（手动 `/compact` 或自动压缩），重试会使用压缩后的上下文，这通常能解决溢出问题。`/retry` 仅适用于失败的轮次；已完成但答案不好的轮次应使用引导消息或 `/branch`。
 
-项目或用户可以放置 Markdown prompt template，加载后作为 slash 命令使用。常见目录：
+## 自定义斜杠命令
 
-```text
-~/.omp/agent/commands/*.md
-<project>/.omp/commands/*.md
+`~/.omp/agent/commands/<name>.md`（用户级）或 `<cwd>/.omp/commands/<name>.md`（项目级）下的任何 Markdown 文件都会成为 `/<name>` 并作为提示词模板展开。Skill 以 `/skill:<name>` 形式暴露。编写详情、发现顺序和 TypeScript 处理器 API 请参阅 [提示词模板](./prompt-templates.md) 页面。
+
+```
+---
+description: Code-review a file or diff
+argument-hint: <path-or-diff>
+Review the following for correctness, edge cases, and style:
+
+$@
 ```
 
-模板可以带 frontmatter 描述，并通过参数占位把用户输入拼入 prompt。自定义命令适合封装团队固定流程，例如 `/review`、`/release-note`、`/migration-plan`。
+调用 `/review src/auth.ts` 时，正文中的 `$@` 会被替换为参数。还支持位置参数形式（`$1`、`$2`、`$@[1:2]`）和 `$ARGUMENTS`。

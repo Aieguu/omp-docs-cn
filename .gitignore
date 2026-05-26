@@ -2,6 +2,8 @@ node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 .source-oh-my-pi/
+.cache/
 .official-*.js
 .DS_Store
 Thumbs.db
+.idea/

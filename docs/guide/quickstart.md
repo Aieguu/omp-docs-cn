@@ -1,107 +1,90 @@
 # 快速上手
 
-## 启动交互式 TUI
+## 安装
 
-在项目根目录运行：
+omp 以 Bun 可运行包和预构建二进制文件两种形式发布。选择下面任一方式，最终都会在你的 `PATH` 上生成一个 `omp` 可执行文件。
 
-```sh
+| 方式 | 命令 | 适用场景 |
+| --- | --- | --- |
+| Bun | `bun install -g @oh-my-pi/pi-coding-agent` | 你已有 Bun >= 1.3.14。 |
+| 安装脚本 | `curl -fsSL https://raw.githubusercontent.com/can1357/oh-my-pi/main/scripts/install.sh \| sh` | 其他情况。优先使用 Bun，不可用时使用预构建二进制。Windows：将对应的 `install.ps1` 管道到 `iex`。 |
+| mise | `mise use -g github:can1357/oh-my-pi` | 按项目锁定版本。 |
+
+安装脚本接受 `--source`（强制使用 Bun）、`--binary`（强制使用预构建）和 `--ref <tag|branch|commit>` 用于版本锁定。设置 `PI_INSTALL_DIR` 可覆盖安装目录。
+
+### 验证安装
+
+```
+omp --version           # PATH 上的二进制版本
+omp config path         # 当前 agent 目录（包含 config.yml）
+omp -p 'hello'          # 发送一次 one-shot prompt 进行往返测试
+```
+
+升级命令、频道锁定和离线二进制，请参阅 [CLI 参考](../reference/cli.md)。
+
+## 终端设置
+
+omp 使用 [Kitty 键盘协议](https://sw.kovidgoyal.net/kitty/keyboard-protocol/)，因此可以区分 Shift+Enter 和 Enter，并可靠识别 Alt 组合键。**Kitty** 和 **iTerm2** 无需配置即可使用。**Ghostty** 需要在 `~/.config/ghostty/config` 中添加两个键绑定：
+
+```
+keybind = alt+backspace=text:\x1b\x7f
+keybind = shift+enter=text:\n
+```
+
+**wezterm** 需要在 `~/.wezterm.lua` 中设置 `config.enable_kitty_keyboard = true`。**Windows Terminal** 不支持该协议；请使用 Ctrl+Enter 代替 Shift+Enter 换行。
+
+## 身份验证
+
+有两种方式接入 Provider：启动前设置环境变量，或在 TUI 内使用 `/login` 进行 OAuth 认证。完整 Provider 列表请参阅 [Providers](./providers.md)。
+
+### 方式一 — 环境变量
+
+使用 Anthropic 最快的上手方式：
+
+```
+export ANTHROPIC_API_KEY=sk-ant-...
 omp
 ```
 
-在 TUI 中可以直接输入自然语言任务，例如：
+其他常见密钥：`OPENAI_API_KEY`、`GEMINI_API_KEY`、`XAI_API_KEY`、`GROQ_API_KEY`、`MISTRAL_API_KEY`、`OPENROUTER_API_KEY`、`ZAI_API_KEY`。完整映射请参阅 [环境变量](../reference/env.md)。
 
-```text
-阅读这个仓库，说明构建和测试命令。
+### 方式二 — `/login`
+
+对于 Claude Pro/Max、ChatGPT Plus/Pro、GitHub Copilot、Cursor、Z.AI 及其他订阅制 Provider，启动 omp 后在内部完成认证：
+
+```
+omp
+/login
 ```
 
-或：
+你将看到一个按字母排序的选择器。`/login` 追加凭据，不会覆盖；`/logout` 清除所选 Provider。对于同一 Provider，已保存的 API key 优先于 OAuth。所有凭据存储在 `~/.omp/agent/agent.db` 中——迁移机器时请备份该文件。
 
-```text
-把 src/foo.ts 里的旧 API 替换为新 API，并运行相关测试。
+## 第一次对话
+
+在任意项目目录下运行 `omp`：
+
+```
+omp
 ```
 
-## one-shot 模式
+首次启动会创建 `~/.omp/agent/`，检测终端的亮/暗模式和 Kitty 支持，并渲染欢迎面板。当前工作目录成为项目根目录；`AGENTS.md` 和规则文件从该位置发现。输入 prompt 开始：
 
-适合脚本或临时查询：
-
-```sh
-omp -p "列出这个项目的主要入口文件"
+```
+summarise src/main.ts
 ```
 
-## 常用交互动作
+Agent 选择工具，TUI 将调用渲染为紧凑卡片，响应流式返回。Ctrl+O 展开卡片查看完整工具输出。
 
-| 操作 | 作用 |
-| --- | --- |
-| `/login` | 登录或添加 Provider 凭据；无参数时打开 Provider 选择器。 |
-| `/logout` | 清除某个 Provider 的已保存凭据。 |
-| `/model` | 打开模型选择器；用于选择模型并调整角色分配。 |
-| `Ctrl+P` | 在当前会话中按配置的角色/模型循环顺序切换当前主模型。 |
-| `Ctrl+L` | 打开模型选择器并设置角色。 |
-| `Alt+P` | 临时选择一个模型，不写回 `modelRoles`。 |
-| `/mcp list` | 查看 MCP server 发现结果。 |
-| `/mcp reload` | 修改 MCP 配置后重新加载。 |
-| `/tree` | 打开当前会话树，在历史节点之间跳转。 |
-| `/branch` | 从历史节点分支出新会话或按配置打开 tree。 |
-| `/fork` | 复制当前会话文件。 |
-| `/resume` | 恢复历史会话。 |
-| `/reload-plugins` | 修改扩展或插件后重新加载。 |
+One-shot 模式（无 TUI，单轮后退出）：
 
-完整命令见 [Slash 命令](./slash-commands.md)，完整键位见 [快捷键](./keybindings.md)。
-
-## 推荐的首轮任务
-
-第一次进入一个新仓库时，可以让 omp 建立上下文：
-
-```text
-熟悉这个项目：阅读 README、package 配置、构建脚本和主要源码目录。总结如何运行、测试、发布，以及你后续修改代码需要注意什么。
+```
+omp -p "list .ts files in src/"
 ```
 
-然后要求它保留关键事实：
+## 后续阅读
 
-```text
-把这个项目的构建、测试、目录结构和注意事项记下来，后续会话继续使用。
-```
-
-这会用到 Hindsight / memory 相关能力（`retain`、`recall`、`reflect`）。
-
-## 安全地做修改
-
-建议让 agent 遵循以下节奏：
-
-1. 先读文件和配置。
-2. 给出计划。
-3. 小步修改。
-4. 运行类型检查 / 测试 / 构建。
-5. 总结变更和验证结果。
-
-示例：
-
-```text
-实现这个功能前先不要改代码。先阅读相关文件，给出最小修改计划和需要跑的验证命令。
-```
-
-## 使用 LSP
-
-当你要做重命名、引用分析、诊断修复时，明确让 omp 使用 LSP：
-
-```text
-使用 LSP 找到 formatBytes 的所有引用，然后把它重命名为 formatFileSize，确保导出和导入一起更新。
-```
-
-![官方 LSP 示例：引用查找和重命名](https://omp.sh/captures/lsp.webp)
-
-## 使用调试器
-
-当程序崩溃或挂起时，可以要求：
-
-```text
-用 debug 工具启动/附加调试器，定位崩溃栈帧和关键变量，不要只加 print。
-```
-
-## 使用子代理
-
-适合大型排查或并行阅读：
-
-```text
-把这个迁移任务拆给 3 个子代理：一个看后端接口，一个看前端调用，一个看测试覆盖。每个子代理返回结构化发现，最后你合并成实施计划。
-```
+- [使用 omp](./using.md) — 编辑器、消息队列、模式。
+- [键绑定](./keybindings.md) — 日常使用的快捷键。
+- [Slash 命令](./slash-commands.md) — 聊天内参考。
+- [会话](./sessions.md) — 恢复、分叉、分支。
+- [Plan 模式](./plan.md) — 大规模变更前的规划。

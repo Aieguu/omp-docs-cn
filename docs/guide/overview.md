@@ -86,5 +86,5 @@ omp 支持四十多个 Provider / coding plan / 本地模型入口。模型可�
 
 1. 读 [安装与升级](./install.md)。
 2. 读 [快速上手](./quickstart.md)。
-3. 根据需求阅读 [配置体系](./config.md)、[模型与 Provider](./models.md)、[工具系统](./tools.md)。
-4. 做团队集成时再读 [扩展、技能、MCP 与 Hook](./extensibility.md)。
+3. 根据需求阅读 [配置体系](./settings.md)、[模型与 Provider](./providers.md)、[工具系统](./tools.md)。
+4. 做团队集成时再读 [扩展、技能、MCP 与 Hook](./skills.md)。
