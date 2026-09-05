@@ -1,108 +1,137 @@
 # 文件操作
 
-每个文件流程使用五个内置工具之一。`read` 读取字节（支持行范围、归档成员、URL 抓取），`write` 创建或覆盖整个文件，`edit` 应用行锚定补丁，`find` 解析路径通配符，`search` 执行正则内容查找。如需结构化重写和合并冲突，请参阅[结构化编辑](./editing.md)；如需符号感知重命名，请参阅[代码智能](./code-intelligence.md)。
+当你希望 omp 理解真实的项目上下文、而不是围绕粘贴进来的片段工作时，可以使用文件能力。把它指向某个目录或文件，描述预期的结果，然后让它先缩小搜索范围，再修改任何内容。
 
-## read
+## 从一个问题开始
 
-一个 `path` 参数即可处理磁盘文件、目录、归档文件、SQLite 数据库、PDF、Office 文档、Jupyter Notebook、图片和普通网页 URL。同一参数支持解析内部协议：`skill://`、`pr://`、`issue://`、`agent://`、`artifact://`、`memory://`、`mcp://`、`local://`、`conflict://`、`jobs://`。
-
-使用 `:` 附加选择器来限定读取范围。`:50-200` 是行范围，`:50+150` 是计数形式，`:raw` 跳过摘要，`:conflicts` 索引合并冲突块。输出带锚定前缀（`41th|text`），以便 `edit` 后续精确引用特定行。对可解析的源文件使用裸路径会返回结构化摘要——保留签名，省略函数体。如需函数体，请使用范围或 `:raw` 重新读取。
+在你希望 omp 检查的项目中启动它：
 
 ```
-# 行范围从 tarball 中的文件读取
-read "build/bundle.tar.gz:src/app.ts:120-180"
-
-# 原始逐字片段（无摘要、无锚点）
-read "src/parser.ts:1-40:raw"
-
-# 抓取并清理网页
-read "https://example.com/docs/api"
-
-# URL 协议与文件使用相同的选择器语法
-read pr://1234/diff/2
-read agent://AuthLoader/findings
-read conflict://*
+cd my-project
+omp
 ```
 
-## write
-
-`write` 创建新文件或整体替换现有文件。分发逻辑与 `read` 匹配：`archive.ext:inner/path` 写入归档文件，`db.sqlite:table` 插入一行，`db.sqlite:table:key` 更新或删除一行。生成的文件受到意外覆盖保护；格式化保存流程会在字节写入磁盘之前运行。
+然后用日常语言提问：
 
 ```
-write path="src/routes/health.ts" content="export const ok = () => 'ok';\n"
+Find where refresh tokens are created. Explain the flow and cite the relevant files. Do not edit anything.
 ```
 
-当文件已存在且只需更改部分内容时，请使用 `edit` 代替。整文件重写会丢失锚定历史记录，在 diff 审查中也更加嘈杂。
+omp 会搜索工作区、打开相关部分，并报告它使用过的路径。最后一句让这第一次处理明确为只读。一旦解释看起来无误，再用一个有边界的变更跟进：
 
-## edit
+```
+Rename issueToken to mintToken across the implementation and its tests. Show me every changed file and run the focused tests.
+```
 
-`edit` 根据每个会话的读取缓存应用行锚定补丁。模型读取一段内容，复制要更改行的两个字符哈希，然后针对该精确锚点发出操作。如果文件在读取后被移动——被另一个 agent、格式化工具或手动保存——哈希将不再匹配，补丁会被拒绝而非覆盖错误的行。修复方法始终相同：重新 `read` 片段，然后根据新锚点发出新的补丁。
+变更会直接应用到工作树。在交互式对话记录中，omp 会为文本变更显示受影响的路径和带颜色的 diff；创建、移动与删除操作则各有不同的状态行。展开某个结果可以检查大 diff 的更多细节。除非你要求，否则 omp 不会创建 Git 提交。
 
-补丁语法（默认变体 `hashline`）是一个包含一个或多个文件片段的 `input` 字符串。每个片段以 `@@ PATH` 开头；操作引用锚点。载荷行以 `~` 开头。
+## 你可以要求什么
 
-| 操作 | 效果 |
+| 目标 | 示例请求 |
 | --- | --- |
-| `+ ANCHOR` | 在锚定行之后（或 EOF）插入载荷行。 |
-| `< ANCHOR` | 在锚定行之前（或 BOF）插入载荷行。 |
-| `- A..B` | 删除闭合行范围。 |
-| `= A..B` | 用载荷行替换该范围。 |
+| 理解代码库 | “把 `POST /login` 的请求路径一路追溯到数据库。引用重要的文件和函数。” |
+| 查找文本或文件 | “找出所有提到旧版主机的测试夹具，包括 `testdata/` 下被忽略的那些。” |
+| 比较版本或格式 | “按语义而不是键顺序比较这两个 JSON 文件，并总结行为上的差异。” |
+| 提取文档数据 | “从 `vendor-proposal.xlsx` 中提取定价表，并标出合计不一致的地方。” |
+| 检查归档文件 | “在 `release.tar.zst` 内部找到生产配置，并与 `config/production.yml` 比较。” |
+| 处理 Notebook | “更新 `analysis.ipynb` 中的绘图单元格，为两个坐标轴都加上标签；其他单元格保持不动。” |
+| 检查数据库 | “列出 `cache.db` 中的表，然后显示 sessions 表的 schema 和最新的五行。不要修改它。” |
+| 查看图片 | “检查 `screenshots/error-state.png`，列出可见的错误文本和布局问题。” |
+| 使用远程主机 | “针对 `ssh://staging/etc/nginx/nginx.conf`，解释其中的代理规则。不要改动远程文件。” |
+| 做有边界的修改 | “在 `src/config.ts` 中替换已停用的端点，更新相应测试，并显示 diff。” |
+
+一条包含具体路径、预期结果和边界（例如“不要编辑”、“只修改这些文件”或“保留格式”）的请求，通常能带来最好的结果。
+
+## omp 能理解的数据
+
+### 本地文件与目录
+
+omp 可以浏览目录，并检查文本、源代码、配置、日志以及其他 UTF-8 文件。当它首次打开大型源文件时，可能会使用结构化概览——只显示声明、省略函数体。当你需要完整文本时，请索要具体实现、按行引用的内容，或点名的函数。
+
+默认情况下，工作区发现会遵循 `.gitignore`。如果答案位于被忽略的构建产物、测试夹具、日志或 `.env` 文件中，请明确说出要包含哪个被忽略的路径。尽量避免不必要地暴露密钥值；当只需要变量名或结构时，就索要变量名或结构，而不是内容本身。
+
+目录列表有深度限制，宽泛的搜索也设有上限，以免单个请求淹没整个会话。项目很大时，请按目录、扩展名、符号或日期缩小范围。
+
+### 文档、Notebook 与图片
+
+omp 会从以下文档格式中提取可读内容：
+
+*   PDF
+*   Word `.docx`
+*   PowerPoint `.pptx`
+*   Excel `.xlsx`
+*   EPUB
+
+旧版 `.doc`、`.ppt`、`.xls` 和 `.rtf` 文件不会被自动转换。请先把它们转换成现代格式、PDF 或纯文本。
+
+Jupyter `.ipynb` 文件会以可编辑的代码、Markdown 和原始单元格的形式呈现，而不是以 Notebook 原始 JSON 的形式。修改单元格源代码的同时，Notebook 原有的结构和单元格元数据会得到保留。受支持的图片可以直接内联查看；大于 20 MiB 的图片会被拒绝。
+
+### 归档文件与压缩文件
+
+对于大多数常见的归档文件，omp 无需你先解包就能列出并检查其中的成员。读取支持包括：
+
+*   ZIP 以及基于 ZIP 的软件包，如 JAR、APK 和 Python wheel
+*   tar 归档，包括 gzip、bzip2、xz 和 zstd 变体
+*   RAR、7z、ISO、CAB、Debian、RPM、CPIO、ar、静态库、LZH、ARJ 与 ASAR
+*   使用 gzip、bzip2、xz 或 zstd 的单个压缩流
+
+归档文件的修改能力刻意收得更窄。omp 可以修改基于 ZIP 的归档文件（`.zip`、`.jar`、`.war`、`.ear`、`.apk`）、`.tar`、`.tar.gz`/`.tgz`、`.tar.zst` 和 `.asar` 中的条目。其他归档格式只读；如果必须修改，请先解压再重新打包。把归档更新当作直接修改处理，并在归档尚未纳入版本控制时保留一份备份。
+
+### SQLite 数据库
+
+以 `.sqlite`、`.sqlite3`、`.db` 或 `.db3` 结尾的文件可以按数据库来检查：omp 可以列出表、显示 schema、取出行，并回答有边界的类查询问题。它还可以插入一行，或按主键更新、删除某一行。当你只想要分析时请说明“只读”，并在要求任何修改之前先备份重要数据库。
+
+### 网页、SSH 主机与 omp 资源
+
+给 omp 一个 `http://` 或 `https://` URL，就能把页面的主要内容提取成干净的文本。这最适合文档和文章。如果页面依赖 JavaScript、认证或交互，请改而让 omp 在浏览器中打开它。
+
+以 `ssh://` 开头的路径可以指向某个已配置的远程 POSIX 主机。omp 可以列出远程目录、读取并搜索远程 UTF-8 文件，以及写入远程文件。直接的远程读取限制为 1 MiB。主机必须已经配置并经过验证；此路径接口不支持 Windows SSH 目标——请在本地挂载它们，或改用显式的远程 shell 工作流。
+
+omp 还可以跟随它自己的资源链接——例如缓存的 GitHub issue 和 pull request、会话工件、历史记录、记忆以及计划文件。GitHub 资源请参阅 [GitHub 集成](./github.md)。
+
+## 文件发生变化时会发生什么
+
+1.   **omp 会先检查再修改。** 对于普通文本编辑，它会用刚看到的内容来定位修改。如果其他进程先修改了那份内容，omp 会拒绝或恢复这个过期的目标，而不是盲目套用。
+2.   **当你的策略有要求时，修改前会先经过审批。** 审批被拒绝时，目标保持原样。
+3.   **结果立即可见。** 文本编辑会显示 diff 和改动数量。创建、移动、删除、无实际变化的修改（no-op）以及错误会分别标注。
+4.   **随后可能有可选的语言反馈。** LSP 诊断和格式化取决于你的设置。它们不能替代你要求 omp 运行的构建或测试命令。
+5.   **工作树始终归你所有。** 用你平时的编辑器或 `git diff` 审阅，再让 omp 修复任何意料之外的地方。
+
+符号感知的重命名与诊断请参阅[代码智能](./code-intelligence.md)。
+
+## 安全与配置
+
+默认的审批模式是 **Yolo**，除非有按能力划分的策略覆盖，否则它允许读取、写入和命令执行。若要让会话在工作区写入和命令执行之前暂停，请这样启动 omp：
 
 ```
-# 1. 先读取片段以获取锚点
-read src/auth.ts:80-90
-# →  87qa|  return loadUser(id);
-#    88bf|}
-
-# 2. 通过锚点打补丁
-edit input="@@ src/auth.ts
-= 87qa..87qa
-~  return await loadUser(id);
-:"
+omp --approval-mode always-ask
 ```
 
-使用 `PI_EDIT_VARIANT` 环境变量可按会话覆盖语法；接受的值为 `hashline`（默认）、`patch`、`apply_patch`、`replace` 和 `vim`。`~/.omp/agent/config.yml` 中对应的 `edit.mode` 设置可实现持久化覆盖。
+你可以在 `/settings` 的 **Interaction → Approvals** 下持久地更改这一行为。“始终询问”会自动允许只读检查，并在写入和命令执行时请求确认。如果要做一段不允许修改工作区的设计梳理，请使用[计划模式](./plan.md)。
 
-> 当变更涉及结构——重命名符号、交换 API 形状、重写每个调用点——请使用 [ast_edit](./editing.md) 或 [lsp rename](./code-intelligence.md)。两者都忽略空白，能承受会导致行锚定补丁失效的格式化变动。
+与文件相关的 LSP 控制位于 `/settings` 的 **Files → LSP** 下。默认情况下，写入时格式化（format-on-write）处于关闭状态，整文件写入后的诊断处于开启状态，增量编辑后的诊断处于关闭状态。如果你希望这些行为自动发生，可启用 **Format on Write** 或 **Diagnostics on Edit**，或让 omp 在修改后运行特定的格式化工具或检查。
 
-## find
+对于敏感或影响重大的工作：
 
-`find` 解析路径通配符。在 `paths` 中传入一个或多个模式；结果以换行分隔，相对于 cwd，按修改时间排序（最新优先）。默认遵守 `.gitignore`。用它来列举而不读取：与 `search` 的分工是有意为之，以防止模型意外将所有匹配文件加载到上下文中。
+*   从“只检查”开始，或使用计划模式。
+*   明确列出允许的文件与禁止改动的区域。
+*   在修改归档文件、数据库或未纳入版本控制的远程文件之前，先要求备份。
+*   在要求提交之前，审阅显示的 diff 与 `git diff`。
+*   只要不需要密钥的实际值，就别把它们放进提示词与 diff。
 
-```
-# 所有 TypeScript 路由文件，最新优先
-find paths=["src/routes/**/*.tsx"]
+配置文件的位置与优先级请参阅[设置](./settings.md)。
 
-# 一次调用多个根目录
-find paths=["apps/**/package.json", "packages/**/package.json"]
-```
+## 故障排查
 
-## search
-
-`search` 对文件、目录、通配符或内部 URL 的内容执行正则搜索。匹配结果以锚定前缀行返回（`*5th|content`）；上下文行使用前导空格。遵守 `.gitignore`。当正则包含字面 `\n` 时自动启用跨行模式。原生引擎支持分页——`skip` 跳过先前的匹配而无需重新扫描。
-
-```
-# 所有带作者标签的 TODO，不区分大小写
-search pattern="TODO\\(\\w+\\)" paths=["src/"] i=true
-
-# 跨行：函数签名后跟空函数体
-search pattern="function \\w+\\([^)]*\\)\\s*\\{\\n\\s*\\}" paths=["src/"]
-```
-
-当只需要路径列表时使用 `find`，需要查看匹配内容时使用 `search`。如需忽略空白和注释的结构化匹配，请使用[结构化编辑](./editing.md)页面中的 `ast_grep`。
-
-## 工作流程示例
-
-四个最常见的文件操作步骤遵循同一模式：缩小范围、读取、打补丁、验证。
-
-```
-1. find paths=["src/**/*.ts"]                              # 枚举
-2. search pattern="loadUser\\(" paths=["src/"]             # 定位调用点
-3. read src/auth.ts:80-120                                 # 获取锚点
-4. edit input="@@ src/auth.ts
-   = 87qa..87qa
-   ~  return await loadUser(id);
-   "                                                      # 通过锚点打补丁
-5. lsp action=diagnostics file=src/auth.ts                 # 验证
-```
-
-有关 `lsp` 工具请参阅[代码智能](./code-intelligence.md)，有关 `ast_edit` 和 `conflict://` URL 接口请参阅[结构化编辑](./editing.md)。
+| 问题 | 处理方法 |
+| --- | --- |
+| omp 找不到本地文件 | 检查相对于 omp 启动目录的路径。从项目根目录重新启动，或使用 `omp --cwd /path/to/project`。 |
+| 被忽略的文件没有出现在结果中 | 点名具体的被忽略目录或文件，并明确要求 omp 纳入被忽略的内容。不要笼统地包含密钥文件。 |
+| 源文件看起来不完整 | omp 很可能是返回了结构化概览。请索要指定函数的确切函数体、某一段行范围，或逐字内容。 |
+| 结果只覆盖了一部分文件就停止 | 按目录或文件类型收窄请求，或让 omp 从剩余的匹配项继续。 |
+| 编辑因目标已过期而被拒绝 | 另一个进程在 omp 检查之后修改了该文件。让 omp 重新打开当前文件，并基于新内容重试。 |
+| 某个文档无法解码 | 确认它是 PDF、`.docx`、`.pptx`、`.xlsx` 或 `.epub`；先转换旧版 Office 格式。 |
+| 归档文件可以检查但无法修改 | 它的格式是只读的。请解压它，并以受支持的 ZIP、tar 或 ASAR 格式重新打包。 |
+| SSH 路径失败 | 确认常规 SSH 访问正常、主机是 omp 已知的 POSIX 系统，并确认目标为 UTF-8 编码且直接读取不超过 1 MiB。 |
+| 网页为空或不完整 | 它很可能依赖 JavaScript、登录或交互。让 omp 使用浏览器，并描述你想要执行的操作。 |
+| 格式化或诊断没有运行 | 索要具体的格式化工具/检查，或在 `/settings` 的 **Files → LSP** 下启用相关选项。 |

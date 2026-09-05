@@ -24,5 +24,5 @@ npm run docs:build
 ## 文档来源
 
 - 上游项目：<https://github.com/can1357/oh-my-pi>
-- 本次整理参考提交：`774d32c chore: bump version to 15.4.1`
+- 本次同步对应上游版本：`v18.1.10`（tag `v18.1.10`，提交 `f241301`），官方文档快照取自 <https://omp.sh/docs>。
 - 官方站点：<https://omp.sh>

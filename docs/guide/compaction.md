@@ -1,85 +1,188 @@
 # 压缩
 
-会话会不断增长直到不再适合模型的上下文窗口。Compaction 是 omp 的解决方案：用单个摘要条目替换记录的较旧部分，同时保留近期尾部的原文。下一轮看到的是 `system`，然后是摘要，再然后是保留的尾部——足够的近期细节以继续工作，加上之前所有内容的摘要。原始条目保留在磁盘上；只有实时消息流被重写。
+长时间的会话最终积累的文本会超过模型一次能考虑的范围。omp 通过压缩较旧的上下文、同时保留最近的对话来让工作持续推进。你通常无需做任何事：自动压缩默认处于启用状态。
 
-## 保留什么，摘要什么
-
-`compaction.keepRecentTokens`（默认 `20000`）设置保留尾部的目标大小。切割点选在该窗口内的用户轮次边界处；工具结果不会跨越边界被切割。切割点之前的元数据条目（模型更改、思考级别更改、标签）会被前移到保留区域，以便近期轮次仍可正确解析。
-
-在切割点之前，omp 可能会先修剪大型工具输出。默认策略保护最新的 `40 000` 个工具输出 token，要求至少节省 `20 000` 个 token 的总估计量，并且从不触及 `skill` 或 `read` 结果。被修剪的输出会被替换为 `[Output truncated - N tokens]` 占位符。切割点之前的所有其他内容被折叠成一个摘要，记录对话要点加上会话触及的 `<read-files>` / `<modified-files>` 路径列表。
-
-摘要条目作为 `CompactionEntry` 追加到会话中，包含 `type: "compaction"`、原文 `summary`、`firstKeptEntryId` 和 `tokensBefore`。压缩前的条目保留在磁盘上；[`/tree`](./sessions.md) 仍然可以回溯到它们。
-
-## 手动：`/compact [focus]`
-
-在任何时候运行 `/compact` 以强制对当前分支进行压缩。可选参数是自由文本，作为额外指令传递给摘要器——当默认摘要会对错误的线程过度加权时使用：
+先从下面的命令开始：
 
 ```
-/compact Focus on the API redesign decisions; the migration scripts are scratch work.
+/context
 ```
 
-手动压缩会先中止当前轮次，然后进行摘要，最后写入条目。无论 `compaction.enabled` 是否开启都可以工作——该设置仅控制自动路径。计划模式在接受计划时通过 _Approve and compact context_ 提供相同的原语。
+这会显示当前激活模型的上下文窗口已使用了多少，以及在自动维护之前还剩多少空间。除非 omp 丢失了某个重要细节、上下文被臃肿的输出占据，或者你想自行决定保留哪些内容，否则照常继续工作。
 
-## 自动触发器
+## 自动压缩会做什么
 
-三条自动路径共享压缩机制，但触发时机和后续行为不同。
+当上下文接近当前模型的限制时，omp 会先移除过期的文件读取、空的搜索以及其他可以安全省略的大块结果。随后，它会按顺序尝试已配置的维护方法。默认顺序为：
 
-| 触发器 | 触发时机 | 压缩后 |
+1.   provider 原生的服务端压缩——当当前路由支持时；
+2.   **snapcompact**——将较旧的历史归档为可供具备视觉能力的模型使用的密集图像；
+3.   结构化的 **handoff** 摘要；
+4.   **shake**——不发起摘要请求，直接移除可恢复的命令、搜索和文件输出内容；
+5.   **soft** 压缩——用模型对较旧的历史做摘要。
+
+当某个方法不可用或失败时，会继续尝试下一个。因此，默认顺序无需针对模型做专门配置，即可同时适用于纯文本模型与具备视觉能力的模型。
+
+无论哪种方法成功，当前模型都会保留对话的最近尾部，并收到一份替换较旧上下文的精简版本。较旧轮次中的原文措辞不再位于模型的实时窗口中，但常规压缩不会删除原始的会话记录。
+
+自动维护可能发生在以下时机：
+
+*   在一条成功的响应使用量跨过阈值之后；
+*   在包含许多命令或文件读取的长轮次中，于两次模型请求之间；
+*   在出现上下文溢出或不完整输出的响应之后，随后进行重试之前；
+*   空闲期间——但仅在明确启用了空闲压缩时。
+
+默认情况下，omp 可以在临近阈值时预先准备摘要，从而让可见的停顿更小。跨过阈值的维护完成后，它会自动继续工作。溢出和不完整输出的恢复则会改为重试被打断的工作。
+
+### 你会看到什么
+
+TUI 会显示类似 `Auto server compaction…`、`Auto-snapcompact…`、`Auto-handoff…` 或 `Auto-shake…` 的状态。按 `Esc` 即可取消。压缩运行期间输入的文字会一直等待，直到维护结束。
+
+当某个摘要方法成功后，转录会围绕一条细窄的分隔线重建，例如 `soft-compacted`、`remote-compacted` 或 `handed-off`，通常还伴随诸如 `256K→20K` 的 token 缩减。压缩前的历史默认会被折叠。按 `Ctrl+O` 可在分隔线处展开摘要。
+
+自动 shake 则会报告 `Auto-shake completed`，并将符合条件的大段区域替换为简短占位符。当 `compaction.autoContinue: true`（默认值）时，由阈值触发的维护会继续执行，而无需等待下一条提示。
+
+## 选择手动恢复路径
+
+请选择与问题匹配的、破坏性最小的命令：
+
+| 情形 | 命令 | 可见结果 |
 | --- | --- | --- |
-| **溢出恢复** | 模型在当前轮次返回上下文溢出错误。 | 重试同一轮次。首先尝试配置的升级链中更大的模型；仅在升级不可用时才运行压缩。 |
-| **阈值维护** | 一轮成功的对话完成后，调整后的上下文 token 超过解析的阈值。 | 调度自动继续提示，除非 `compaction.autoContinue` 为 `false`。 |
-| **空闲维护** | 会话空闲、未在流式传输、未在压缩。 | 停止。不会自动继续。 |
+| 会话状态良好，但你想腾出更多空间，或想突出某些决定 | `/compact [focus]` | 较旧的上下文会变成一份精简的摘要/归档，出现一条压缩分隔线，然后 omp 等待你的下一条指令。 |
+| 下一阶段需要一份关于目标、决定、进展和下一步的结构化说明 | `/handoff [focus]` | omp 会显示 `Generating handoff…`，然后用交接文档替换较旧的实时上下文，并报告 `Context handed off and compacted in place`。 |
+| 大量命令输出、文件内容、生成的代码块、图像或已保存的推理内容挤占了对话 | `/shake [elide \| images \| thinking]` | 符合条件的大段内容会被替换为简短占位符，无需摘要请求；详见下文。 |
+| 一切正常 | 无需操作 | 自动维护会在所配置的阈值处运行。 |
 
-阈值默认为 `contextWindow - max(15% of contextWindow, reserveTokens)`。使用 `compaction.thresholdPercent` 或 `compaction.thresholdTokens` 覆盖；取正值的那个生效。
+### `/compact`：常规的手动选择
 
-## 非压缩重试
-
-并非所有失败都是溢出。Provider 过载、速率限制、5xx 响应、套接字重置和使用限额错误是临时性的——重新发送相同的提示词通常有效。omp 通过单独的重试策略路由这些错误，该策略**不会**进行压缩：
-
-1. 代理根据临时性模式（`overloaded`、`rate limit`、`429`、`5xx`、`connection reset`、`fetch failed`、usage-limit、retry hints）对错误消息进行分类。
-2. 上下文溢出错误被明确排除，转而进入压缩流程。
-3. 失败的助手条目从实时代理状态中移除（仍保留在会话文件中），轮次在退避延迟后重新调度。
-
-退避策略是指数级的：`retry.baseDelayMs * 2^(attempt - 1)`。默认配置下，三次尝试分别为 2 秒、4 秒、8 秒。Provider 提供的提示（`retry-after`、`retry-after-ms`、`x-ratelimit-reset`）可以覆盖本地延迟。如果配置的回退链（`retry.fallbackChains`）提供了不同的模型或凭据，omp 会立即切换并无延迟重试；当原始资源的冷却期到期后会恢复，除非 `retry.fallbackRevertPolicy` 为 `"never"`。
+运行 `/compact` 立即压缩，它使用第一个可用的已配置手动方法：
 
 ```
-retry:
-  enabled: true
-  maxRetries: 3
-  baseDelayMs: 2000
-  fallbackRevertPolicy: cooldown-expiry
+/compact
 ```
 
-TUI 在重试待处理时显示 `Retrying (n/max) in Ns… (esc to cancel)`。`Esc` 取消退避并终止重试链；全局中止也会取消进行中的重试。达到最大尝试次数后，会话发出 `auto_retry_end { success: false, finalError }`，轮次显示为失败——不会自动压缩，不会再次尝试。
+当较旧的上下文中包含多条线索、而其中某条最为重要时，可添加聚焦说明：
 
-## 检查上下文和压缩
+```
+/compact Preserve the API decisions, unresolved test failure, and exact next steps. Treat benchmark experiments as disposable.
+```
 
-`/context` 打印实时窗口的分桶明细：系统提示词、系统工具、系统上下文、Skills、消息、自动压缩缓冲区和剩余空间。每个桶都有一个 ASCII 条形图和 token 计数，方便看出哪个会先溢出。
+你还可以在不改动设置的情况下选择一次性方法：
 
-`/usage` 报告活动凭据的 Provider 速率限制余量。当轮次停滞时，先检查 `/usage` 以排除配额瓶颈——重试路径会自动处理这种情况。
+| 语法 | 使用时机 |
+| --- | --- |
+| `/compact soft [focus]` | 你想要一份常规的、由模型撰写的摘要，并可选地引导它。 |
+| `/compact remote [focus]` | 在可用时，你想要 provider 原生的、兼容 OpenAI 的压缩；它会回退到 soft 压缩。 |
+| `/compact snapcompact` | 你想要使用具备视觉能力的模型进行本地图像归档，且不发起摘要请求。它不接受 focus 文本。 |
 
-压缩条目在[会话文件](./sessions.md)中以 JSON 对象形式可见，格式为 `{ "type": "compaction", "summary": "…", "firstKeptEntryId": "…", "tokensBefore": N }`。编排器的 `session_compact` Hook 在每次压缩后触发，因此 Extension 可以记录或对其做出反应。
+即使自动压缩被禁用，手动 `/compact` 依然可用。如果当前有响应正在运行，该命令会在压缩前中止该响应。操作期间 TUI 会显示 `Compacting context… (esc to cancel)`；成功后，分隔线与降低的上下文用量即可确认结果。
+
+### `/handoff`：保留结构化的项目状态
+
+当一份泛泛的对话摘要过于松散时，请使用 `/handoff`——例如在从调研转入实现之前，或当一个长任务包含许多决定与依赖时：
+
+```
+/handoff Focus on the accepted design, files already changed, verification still needed, and known risks.
+```
+
+尽管名称如此，这个手动命令目前是**就地压缩当前会话**。它不会开启后继会话，默认也不会保存 Markdown 交接文件。运行 `/handoff` 之前，请先等待当前响应结束，或中止它。交接文档包含的内容以及自动交接行为，参见 [Handoff](./handoff.md)。
+
+### `/shake`：不做摘要直接移除大块内容
+
+`/shake` 默认使用 `elide`：
+
+```
+/shake
+```
+
+它会将符合条件的命令、搜索和文件读取输出，以及大型的围栏代码块或类 XML 块替换为简短占位符。在持久化的会话中，omp 在可能时还会把移除的区域保存为会话工件；占位符中包含 `artifact://…` 恢复引用。如果某个被移除的结果之后变得重要，可以让 omp 从该引用恢复指定的区域。
+
+针对性的变体更具破坏性：
+
+| 命令 | 移除内容 | 恢复方式 |
+| --- | --- | --- |
+| `/shake elide` | 符合条件的大块结果与大段代码块 | 当会话可以持久化工件时，原始区域会保存为工件。 |
+| `/shake images` | 会话中的图像块 | 不会创建恢复工件。 |
+| `/shake thinking` | 已保存的推理块 | 不会创建恢复工件。 |
+
+仅在相关内容已不再需要时，才使用图像或推理内容的移除。像 `Nothing to shake`、`No images found` 或 `No thinking blocks found` 这样的结果是一次成功的空操作，而非错误。
 
 ## 配置
 
-在 `~/.omp/agent/config.yml` 中：
+默认值适用于大多数用户。可以通过 `/settings`、诸如 `omp config set` 之类的 shell 命令，或 `~/.omp/agent/config.yml` 中的 YAML 来修改（已有的 `config.yaml` 同样会被采用）。项目级覆盖可以放在 `<project>/.omp/config.yml` 中。
+
+例如，以下配置在保持常规自动行为的同时，加入了空闲时的维护：
 
 ```
 compaction:
-  enabled: true              # master switch for automatic paths
-  strategy: context-full     # "context-full" | "handoff" | "off"
-  reserveTokens: 16384       # headroom kept under the context window
-  keepRecentTokens: 20000    # target size of the verbatim tail
-  autoContinue: true         # schedule continuation after threshold compaction
-  idleEnabled: true          # run maintenance while idle
-  thresholdPercent: -1       # explicit % override; -1 = auto
-  thresholdTokens: -1        # explicit token override; -1 = auto
+  enabled: true
+  idleEnabled: true
+  idleThresholdTokens: 200000
+  idleTimeoutSeconds: 300
 ```
 
-对于 headless 或脚本化运行，设置 `autoContinue: false` 使压缩静默发生并停止。设置 `strategy: handoff` 在达到阈值时启动新会话并附带交接文档，而非在当前分支上写入压缩条目。设置 `enabled: false` 完全禁用自动路径；手动 `/compact` 仍然可用。
+从 shell 校验生效值：
 
-## 相关页面
+```
+omp config get compaction.enabled
+omp config get compaction.methodOrder
+omp config get compaction.thresholdPercent
+```
 
-- [Memory](./memory.md) —— 跨会话的持久化笔记；与本页描述的会话内压缩正交。
-- [Sessions](./sessions.md) —— 恢复、分支和 `/tree`，用于浏览压缩写入的磁盘会话文件。
-- [Settings](./settings.md) —— `compaction.*` 和 `retry.*` 配置组的完整参考。
+在会话内运行 `/context` 可核对最终阈值与可用余量。
+
+### 设置参考
+
+| 设置 | 默认值 | 作用 |
+| --- | --- | --- |
+| `compaction.enabled` | `true` | 启用自动维护。设为 false 时，手动 `/compact`、`/handoff` 和 `/shake` 仍然可用。 |
+| `compaction.methodOrder` | `[remote, snapcompact, handoff, shake, soft]` | 有序的自动回退列表。支持的值有 `remote`、`snapcompact`、`handoff`、`shake` 和 `soft`。 |
+| `compaction.thresholdTokens` | `-1` | 大于零时为固定触发值。它优先于 `thresholdPercent`。 |
+| `compaction.thresholdPercent` | `-1` | 大于零时为百分比触发值。`-1` 表示使用基于预留空间的自动大小。数值会被限制在 1–99% 之间。 |
+| `compaction.reserveTokens` | 未设置 | 基于预留空间计算大小时使用的余量。未设置时，omp 通常预留 16,384 token 与模型窗口的 15% 中的较大者；较小的窗口会回退到按比例预留。 |
+| `compaction.keepRecentTokens` | `20000` | 摘要式压缩后，按原文保留的近期对话的目标量。 |
+| `compaction.midTurnEnabled` | `true` | 允许在涉及许多命令或文件读取的长轮次中的安全边界处进行维护。 |
+| `compaction.asyncEnabled` | `true` | 在临近阈值时预先准备符合条件的摘要，以减少压缩提交时的停顿。 |
+| `compaction.autoContinue` | `true` | 在轮次结束后的阈值维护之后自动继续。若希望脚本化或无头运行在此处停止，可设为 false。 |
+| `compaction.idleEnabled` | `false` | 允许在会话空闲期间进行维护。 |
+| `compaction.idleThresholdTokens` | `200000` | 触发空闲维护所需的最小上下文大小。 |
+| `compaction.idleTimeoutSeconds` | `300` | 判定是否维护前的空闲时长。 |
+| `compaction.handoffSaveToDisk` | `false` | 将**自动**交接生成的文档保存到磁盘。它不会让手动 `/handoff` 保存文件。 |
+| `compaction.supersedeReads` | `true` | 在缓存条件允许时，同一文件被再次读取后，省去其较旧的副本。 |
+| `compaction.dropUseless` | `true` | 省去不带任何有用上下文的已消耗输出，例如空的搜索或超时的等待。 |
+| `compaction.remoteEndpoint` | 未设置 | 使用自定义的、兼容 OpenAI 的远程压缩端点。大多数用户应保持未设置。 |
+| `compaction.remoteStreamingV2Enabled` | `true` | 在兼容的路由上使用流式远程压缩。 |
+| `compaction.v2RetainedMessageBudget` | `64000` | 限制流式远程压缩保留的近期消息预算。 |
+
+`display.collapseCompacted` 是一个相关的外观设置。它默认为 `true`，会把压缩前的历史从实时转录中隐藏，同时让摘要分隔线保持可见。若你更喜欢将完整存储的转录内联显示，可将其设为 `false`。
+
+## 故障排查
+
+### 自动压缩没有运行
+
+1.   运行 `/context`。维护并不会仅仅因为会话显得很长就运行；估算的用量必须跨过解析后的阈值。
+2.   检查 `omp config get compaction.enabled` 与 `omp config get compaction.methodOrder`。
+3.   如果你期待的是空闲维护，请记住 `compaction.idleEnabled` 默认为 `false`，且会话必须超过 `idleThresholdTokens` 至少 `idleTimeoutSeconds`。
+4.   如果某个方法不可用，让回退列表继续下去即可。例如，纯文本模型无法使用 snapcompact，但仍可继续使用 handoff、shake 或 soft 压缩。
+
+### `/compact` 提示会话过小或已经压缩过
+
+`Nothing to compact (session too small)` 表示没有足够多的较旧上下文可供替换。`Already compacted` 表示在最近一次边界之后没有新增多少实质历史。继续工作并稍后再试即可；无需任何恢复操作。
+
+### Snapcompact 失败
+
+Snapcompact 需要一个具备视觉能力的当前模型，以及其内置图像字体能够表示的文本。如需可预测的文本摘要，请使用 `/compact soft`。当当前 provider 支持服务端压缩时，`/compact remote` 是另一个选项。
+
+### 上下文仍然过大
+
+运行 `/context` 来判断是消息还是大段的过往结果占据主导。大段输出请先使用 `/shake`；当对话本身很大时，使用 `/compact soft`。如果反复出现这种情况，可降低 `compaction.thresholdPercent`、减小 `compaction.keepRecentTokens`，或选择上下文窗口更大的模型，而不是坐等溢出。
+
+### 某个重要的旧细节丢失了
+
+在压缩分隔线上按 `Ctrl+O` 查看生成的摘要。常规压缩会保留底层的会话历史，因此请使用[会话树](./sessions.md)从更早的点回看或分叉。对于以后的手动压缩，请加入明确的聚焦说明，或使用 `/handoff` 以获得更结构化的延续。由 `/shake images` 或 `/shake thinking` 移除的内容不会保存在恢复工件中。
+
+## 相关
+
+*   [Handoff](./handoff.md) —— 结构化的延续摘要与自动交接行为。
+*   [Sessions](./sessions.md) —— 已保存的历史、恢复、分支与会话树。
+*   [Settings](./settings.md) —— 配置文件、优先级、`/settings` 与 `omp config`。
+*   [Memory](./memory.md) —— 跨会话的持久事实；与上下文压缩相互独立。
