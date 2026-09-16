@@ -1,0 +1,111 @@
+{
+  "fetchedAt": "2026-09-16T10:32:20.927Z",
+  "assets": {
+    "/assets/index-CzHZu9EU.js": {
+      "size": 312664,
+      "sha256": "d14b0a4fd1ae2fea1531f37040db5bbfbc7a1c6098c0ff1d10070ecb54eda2a8"
+    },
+    "/assets/Docs-iVFIoziY.js": {
+      "size": 14038,
+      "sha256": "a9c901e57fcdc263834e1ce9baaaee262c0aef68185590f56e2efee9bcaf6c4b"
+    },
+    "/assets/jsx-runtime-BHwPObl3.js": {
+      "size": 8408,
+      "sha256": "6ed7416c915e185e73374bf284befc5f202ef32181e7815e51b6d13555021d33"
+    },
+    "/assets/Prose-CcMquC60.js": {
+      "size": 5567,
+      "sha256": "86ab81a886f0916400064ff235c0277f1f137960ec58ceb62ebc3a884dc40ca7"
+    },
+    "/assets/OgCard-BhAVqOca.js": {
+      "size": 2568,
+      "sha256": "25ba0793ba9b549b4716bebf76e75c90cc57d2be9d6284686e8215819e84c3cf"
+    },
+    "/assets/start-Dj2bs0Kq.js": {
+      "size": 337713,
+      "sha256": "a0ebeab8b58cdab1a7cfd21820f6992c1bcfe73b1e7c9feb49def880f0a5a9f9"
+    },
+    "/assets/MdxPage-CTY7atqe.js": {
+      "size": 2182,
+      "sha256": "492f98847983c35124f44802bb60de0978d620027c5a20dfb9b4f9a04dbe7a11"
+    },
+    "/assets/capabilities-Cqy7s-PF.js": {
+      "size": 288604,
+      "sha256": "0efc8bd2d514d67fb11e235b7a2e84f12d032173b25ec50186e130e480898fa4"
+    },
+    "/assets/models-DZr7pp6i.js": {
+      "size": 123681,
+      "sha256": "9803874b388093687d877dc90e31759e45a4b8e61092feee30c805c7a0b83452"
+    },
+    "/assets/customization-okh9xJ8M.js": {
+      "size": 298447,
+      "sha256": "e6fcaf607a20810132030e1af61548e11d2b9a4adb4c2c21596f6969aa099a34"
+    },
+    "/assets/programmatic-D_fLU-fi.js": {
+      "size": 103704,
+      "sha256": "98f9603afc0f9ab759253a4718e273c070370c7509f411715d21cfe44038435c"
+    },
+    "/assets/reference-BWFEeAhZ.js": {
+      "size": 265745,
+      "sha256": "f7af505fcfb467edc8ab5dcd25916ae3d8d18cc7107eed2a46a0b90331bd5be2"
+    }
+  },
+  "pages": [
+    "",
+    "acp",
+    "advisor",
+    "agents-and-roles",
+    "approvals",
+    "cli",
+    "code-intelligence",
+    "collab",
+    "commit",
+    "compaction",
+    "computer",
+    "context-files",
+    "custom-models",
+    "custom-tools",
+    "debugging",
+    "editing",
+    "env",
+    "extension-authoring",
+    "files",
+    "github",
+    "goal",
+    "handoff",
+    "hooks",
+    "keybindings",
+    "magic-keywords",
+    "marketplace",
+    "mcp",
+    "mcp-authoring",
+    "memory",
+    "modes",
+    "plan",
+    "plugins",
+    "prewalk",
+    "prompt-templates",
+    "providers",
+    "quickstart",
+    "review",
+    "roles",
+    "rpc",
+    "sdk",
+    "secrets",
+    "security",
+    "session-format",
+    "session-tree",
+    "sessions",
+    "settings",
+    "skills",
+    "slash",
+    "subagent-authoring",
+    "subagents",
+    "themes",
+    "tools",
+    "ttsr",
+    "using",
+    "vibe",
+    "web"
+  ]
+}
