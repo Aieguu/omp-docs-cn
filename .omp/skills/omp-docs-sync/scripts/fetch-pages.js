@@ -91,8 +91,8 @@ async function liveSlugs() {
   const html = await (await fetch(`${BASE}/docs`)).text();
   const entry = html.match(/src="(\/assets\/index-[^"]+\.js)"/)?.[1];
   const index = await (await fetch(BASE + entry)).text();
-  const prose = index.match(/"(assets\/Prose-[^"]+\.js)"/)?.[1];
-  const src = await (await fetch(`${BASE}/${prose}`)).text();
+  const sidebar = index.match(/"(assets\/(?:Prose|nav)-[^"]+\.js)"/)?.[1];
+  const src = await (await fetch(`${BASE}/${sidebar}`)).text();
   return [...src.matchAll(/path:`([a-z0-9-]*)`/g)].map((m) => m[1]);
 }
 

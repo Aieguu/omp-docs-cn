@@ -40,17 +40,17 @@ async function collectAssets() {
   return assets;
 }
 
-// page slugs declared by the docs sidebar (Prose chunk)
+// page slugs declared by the docs sidebar (Prose-* chunk; renamed to nav-* in a later deploy)
 function extractPages(byPath) {
-  const prose = [...byPath].find(([p]) => /\/Prose-/.test(p));
-  return prose ? [...prose[1].src.matchAll(/path:`([a-z0-9-]*)`/g)].map((m) => m[1]).sort() : [];
+  const sidebar = [...byPath].find(([p]) => /\/(Prose|nav)-/.test(p));
+  return sidebar ? [...sidebar[1].src.matchAll(/path:`([a-z0-9-]*)`/g)].map((m) => m[1]).sort() : [];
 }
 
 async function snapshot() {
   const assets = await collectAssets();
   const raw = new Map();
   for (const [p, meta] of assets) {
-    if (/\/Prose-/.test(p)) raw.set(p, { ...meta, src: await fetchText(p) });
+    if (/\/(Prose|nav)-/.test(p)) raw.set(p, { ...meta, src: await fetchText(p) });
     else raw.set(p, meta);
   }
   return {
