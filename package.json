@@ -8,7 +8,9 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "sync:check": "node .omp/skills/omp-docs-sync/scripts/check-upstream.mjs",
-    "sync:verify": "node .omp/skills/omp-docs-sync/scripts/verify-docs.mjs"
+    "sync:verify": "node .omp/skills/omp-docs-sync/scripts/verify-docs.mjs",
+    "releases:fetch": "node .omp/skills/omp-docs-sync/scripts/fetch-releases.mjs",
+    "releases:build": "node .omp/skills/omp-docs-sync/scripts/build-releases.mjs"
   },
   "devDependencies": {
     "vitepress": "^1.6.4"

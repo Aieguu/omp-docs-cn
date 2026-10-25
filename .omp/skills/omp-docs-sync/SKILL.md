@@ -12,6 +12,7 @@ description: Use when syncing this Chinese mirror of omp.sh/docs with upstream �
 - 上游 omp 发布了新版本（用户说「omp 更新到 vX.Y.Z 了」）。
 - 用户问「文档站有需要同步的信息吗 / 需要更新吗」。
 - 需要补页、改页、修渲染问题、更新版本标注。
+- 需要更新发布公告页 `docs/releases.md`（`npm run releases:fetch` → 归纳 → `npm run releases:build` 流程，见下）。
 
 ## 仓库地图
 
@@ -20,12 +21,17 @@ description: Use when syncing this Chinese mirror of omp.sh/docs with upstream �
 | `docs/guide/*.md` | 官方 guide 页的中文页（52 页） |
 | `docs/reference/*.md` | 官方 reference 页的中文页（cli / env / secrets / approvals / session-format） |
 | `docs/index.md` | 首页；含**上游版本标注**（必须与 README 一致） |
+| `docs/releases.md` | 发布公告页：200 个版本的中文要点（本仓库自有页，非官方 1:1 内容） |
 | `docs/.vitepress/config.mts` | 侧边栏；新页面必须登记，否则构建报死链/不可达 |
 | `.omp/skills/omp-docs-sync/references/translation-spec.md` | 标题表、链接改写表、术语表、渲染规则——翻译的唯一口径 |
+| `.omp/skills/omp-docs-sync/references/release-summary-spec.md` | 发布公告的段落格式、归纳规则与禁止项——归纳的唯一口径 |
+| `.omp/skills/omp-docs-sync/scripts/fetch-releases.mjs` | 抓取 GitHub release notes，切片写入 `.cache/release-slices/` |
+| `.omp/skills/omp-docs-sync/scripts/build-releases.mjs` | 合并版本段落 → `docs/releases.md`（以现有页面为基数，可增量） |
 | `.cache/official/<slug>.md` | 抓取到的官方英文页（gitignored，可随时重抓） |
+| `.cache/release-slices/`、`.cache/release-summaries/` | 发布页的切片与归纳中间产物（gitignored，用完即删） |
 | `.omp/skills/omp-docs-sync/.sync-baseline.json` | 已同步的上游资源哈希基线 |
 
-`package.json` 提供两个快捷入口：`npm run sync:check`、`npm run sync:verify`。
+`package.json` 提供四个快捷入口：`npm run sync:check`、`npm run sync:verify`、`npm run releases:fetch`、`npm run releases:build`。
 
 ## 流程
 
@@ -85,6 +91,42 @@ npm run docs:build
 - 上游资源已变 → `check-upstream.mjs --update` 刷新基线。
 - 提交并推送（用户明确要求时）。
 
+## 流程：发布公告页（docs/releases.md）
+
+`docs/releases.md` 是官方 GitHub Releases 的中文要点公告（本仓库自有页，不参与 1:1 镜像校验）。nav「公告」与侧边栏「发布公告」组已登记，**新增版本不需要改 `config.mts`**。段落格式与归纳口径以 `references/release-summary-spec.md` 为准。
+
+当前页面覆盖 `v16.1.7 – v18.12.6` 共 200 个版本；上游 GitHub Releases 实际有 300 个（最早到 `v15.0.0`），更早版本尚未收录——需要回补历史时用全量重建流程，多切片并行归纳。
+
+### 1. 抓取切片
+
+```sh
+npm run releases:fetch                      # 全量（重建时用）
+npm run releases:fetch -- --since v18.12.6  # 只取更新的版本（日常增量）
+```
+
+写入 `.cache/release-slices/slice-NN.json`（JSON 数组，`{tag, date, body}`，倒序，每片默认 25 个）。
+
+### 2. 并行归纳
+
+每个切片起一个子代理，子代理**只产出自己的输出文件**：不跑构建、不动其他文件。指令必须给出：切片路径、输出路径、`references/release-summary-spec.md` 路径、格式与规则要点。产物写入 `.cache/release-summaries/slice-NN.md`。
+
+### 3. 合并
+
+```sh
+npm run releases:build
+```
+
+以现有 `docs/releases.md` 为基数合并，同名版本覆盖；排序、顶部覆盖范围（`覆盖 vX – vY 共 N 个版本`）与「最近 5 版默认展开」由脚本重算。全量重建时先让 `--base` 指向不存在的文件。
+
+### 4. 验证与收尾
+
+```sh
+npm run sync:verify   # 退出码 0
+npm run docs:build    # build complete
+```
+
+通过后删除 `.cache/release-slices` 与 `.cache/release-summaries`（`releases.json` 之类的临时抓取文件一并清理），只提交 `docs/releases.md` 与本技能的改动。
+
 ## 硬性规则（踩过的坑）
 
 1. **表格里的 `|`**：表格行中代码 span 内的 `|` 必须写成 `\|`（例如 `` `[--scope project\|user]` ``）。否则 VitePress 会把单元格截断，渲染出半个 code span，甚至因裸 `<id>` 之类的文本让构建报 `Element is missing end tag`。
@@ -95,6 +137,7 @@ npm run docs:build
 6. **页面集合以线上侧边栏为准**：本地多出的 `guide/faq.md`、`guide/install.md`、`reference/source-map.md` 是本仓库自有页（非官方页），同步时不要动它们。`reference/source-map.md` 是页面映射表，允许出现 omp.sh 链接。
 7. **删/改页面时同步链接**：官方若删除某页，本仓库对应中文页与之的入链要一起处理（否则 verifier 报死链）。
 8. **不要臆造内容**：官方页面没有的内容不写；官方新版删掉的内容要一并删除（干净切换，不留旧段落）。
+9. **发布公告同样受 1、2 条约束**：`docs/releases.md` 的要点里出现 `{{`、裸尖括号或外链会让 `docs:build` 直接失败，归纳子代理的指令里必须带上 `references/release-summary-spec.md` 的禁止项。
 
 ## 完成定义
 
@@ -103,3 +146,4 @@ npm run docs:build
 - `npm run docs:build` 输出 `build complete`。
 - 新版页面的 `##`/`###` 与官方一致，正文无英文残留段落（代码、命令、路径、专有名词除外）。
 - 版本标注已更新且两处一致。
+- 发布公告页：`releases:build` 输出的版本数与切片总数一致，顶部覆盖范围正确，最近 5 版默认展开，`docs:build` 通过。
