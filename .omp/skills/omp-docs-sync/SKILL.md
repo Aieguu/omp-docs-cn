@@ -1,5 +1,5 @@
 ---
-description: Use when syncing this Chinese mirror of omp.sh/docs with upstream — checking whether omp.sh has been redeployed, re-fetching official pages, translating new or changed pages, fixing VitePress rendering, verifying the build, and re-pinning the upstream version. Triggers on "文档同步", "omp 更新了", "docs need updating", "同步官方文档".
+description: Use when syncing this Chinese mirror of omp.sh/docs with upstream — checking whether omp.sh has been redeployed, re-fetching official pages, translating new or changed pages, fixing VitePress rendering, verifying the build, and re-pinning the upstream version. Also use when maintaining docs/releases.md (the Chinese release-notes digest): fetching GitHub releases, summarizing them per slice, and rebuilding the page. Triggers on "文档同步", "omp 更新了", "docs need updating", "同步官方文档", "更新发布页", "发布公告", "release notes 归纳", "新版本公告".
 ---
 
 # omp 中文文档同步
