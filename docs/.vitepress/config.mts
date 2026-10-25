@@ -38,7 +38,8 @@ export default defineConfig({
           { text: "压缩", link: "/guide/compaction" },
           { text: "计划模式", link: "/guide/plan" },
           { text: "目标模式", link: "/guide/goal" },
-          { text: "交接", link: "/guide/handoff" }
+          { text: "交接", link: "/guide/handoff" },
+          { text: "常见问题", link: "/guide/faq" }
         ]
       },
       {
@@ -105,7 +106,8 @@ export default defineConfig({
           { text: "密钥与认证", link: "/reference/secrets" },
           { text: "工具审批", link: "/reference/approvals" },
           { text: "会话格式", link: "/reference/session-format" },
-          { text: "工具索引", link: "/guide/tools" }
+          { text: "工具索引", link: "/guide/tools" },
+          { text: "文档同步映射", link: "/reference/source-map" }
         ]
       },
       {
