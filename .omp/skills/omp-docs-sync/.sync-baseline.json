@@ -1,13 +1,13 @@
 {
-  "fetchedAt": "2026-10-01T16:22:07.621Z",
+  "fetchedAt": "2026-10-25T08:35:33.002Z",
   "assets": {
-    "/assets/index-qgJwzEry.js": {
-      "size": 274044,
-      "sha256": "05f22e229a5e570a97b35603e8a3144f8302dce98c71b92643fdaefc12574437"
+    "/assets/index-D15mEL48.js": {
+      "size": 274178,
+      "sha256": "bf17980415147976a5a9efc5b7ca47dd3915d131bc37ca495908704ba1043fce"
     },
-    "/assets/Docs-BfVMYV82.js": {
+    "/assets/Docs-DO04FKzL.js": {
       "size": 13068,
-      "sha256": "09e415b0106d3fc9ca4d17581b2e220fbb800c29f720430be501471b1e0da3ff"
+      "sha256": "f7fd8498399bf0a1318d73e07edfa475b2004f320f68e673b08bba09595badf0"
     },
     "/assets/jsx-runtime-BHwPObl3.js": {
       "size": 8408,
@@ -21,9 +21,9 @@
       "size": 5405,
       "sha256": "4a7caadf940be0e41ba10df79a1bbe21185e3e8383b9d7caee8393313be8fe3b"
     },
-    "/assets/OgCard-Or6lt3FW.js": {
+    "/assets/OgCard-CotBgpzF.js": {
       "size": 2568,
-      "sha256": "ed0b50844f29d150e87378aad49239352cbefad60e6806b8dd49b7174a7a305d"
+      "sha256": "ecefe1a19ee37ad83fe96d2b40ddfd02924f12b9ec6eabf9ab432a09280aa916"
     },
     "/assets/start-B5uGpR0V.js": {
       "size": 337713,
