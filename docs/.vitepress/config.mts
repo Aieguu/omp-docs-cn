@@ -16,6 +16,7 @@ export default defineConfig({
     nav: [
       { text: "指南", link: "/guide/overview" },
       { text: "参考", link: "/reference/cli" },
+      { text: "公告", link: "/releases" },
       { text: "源码", link: "https://github.com/can1357/oh-my-pi" },
       { text: "官网", link: "https://omp.sh" }
     ],
@@ -105,6 +106,12 @@ export default defineConfig({
           { text: "工具审批", link: "/reference/approvals" },
           { text: "会话格式", link: "/reference/session-format" },
           { text: "工具索引", link: "/guide/tools" }
+        ]
+      },
+      {
+        text: "发布公告",
+        items: [
+          { text: "版本发布公告", link: "/releases" }
         ]
       }
     ],
